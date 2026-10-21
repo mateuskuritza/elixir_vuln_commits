@@ -1,6 +1,7 @@
 # leitura e escrita de csv. o cabeçalho vira as chaves (string) de cada linha.
 defmodule VulnCommits.CSV do
   alias NimbleCSV.RFC4180, as: Parser
+  alias VulnCommits.Text
 
   # devolve uma lista de maps, um por linha de dados
   def read(path) do
@@ -8,7 +9,7 @@ defmodule VulnCommits.CSV do
       path
       |> File.stream!()
       |> Parser.parse_stream(skip_headers: false)
-      |> Enum.map(fn row -> Enum.map(row, &String.replace_invalid/1) end)
+      |> Enum.map(fn row -> Enum.map(row, &Text.scrub/1) end)
 
     Enum.map(rows, fn row -> header |> Enum.zip(row) |> Map.new() end)
   end
