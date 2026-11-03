@@ -106,6 +106,13 @@ defmodule VulnCommits.Judge do
   defp label_name(:vulnerable), do: "VULNERABLE"
   defp label_name(:neutral), do: "NEUTRAL"
 
+  # candidatos com menos de 3 votos válidos; não candidatos não entram (a lista vem de candidates/3)
+  def unjudged(candidates, labels) do
+    Enum.count(candidates, fn c ->
+      length(Map.fetch!(labels, c.hash).votes) < length(@runs)
+    end)
+  end
+
   # rótulo final de cada commit: não candidato é neutral; candidato usa a maioria dos registros
   def labels(commits, records, model, version) do
     by_hash = Store.by_commit(records, model, version)

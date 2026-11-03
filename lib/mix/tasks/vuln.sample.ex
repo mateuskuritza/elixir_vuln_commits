@@ -60,6 +60,7 @@ defmodule Mix.Tasks.Vuln.Sample do
       model_labels =
         Judge.labels(sampled, Store.load(@judgments), OpenAI.model(), Prompt.version())
 
+      warn_unjudged(sampled, model_labels)
       result = Sample.agreement(manual, model_labels)
       write_agreement(result)
 
@@ -70,6 +71,16 @@ defmodule Mix.Tasks.Vuln.Sample do
     else
       Mix.shell().info(
         "#{@labeled} não existe ainda. copie #{@sample} para #{@labeled}, rotule e rode de novo."
+      )
+    end
+  end
+
+  defp warn_unjudged(sampled, labels) do
+    n = Judge.unjudged(sampled, labels)
+
+    if n > 0 do
+      Mix.shell().info(
+        "AVISO: #{n} candidatos com menos de 3 votos válidos; os números de 'nosso' ainda não são finais"
       )
     end
   end

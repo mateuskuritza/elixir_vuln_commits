@@ -25,6 +25,12 @@ defmodule Mix.Tasks.Vuln.Report do
     labels = Judge.labels(commits, records, OpenAI.model(), Prompt.version())
     warn_if_empty(labels)
 
+    candidates =
+      Judge.candidates(commits, :original, years: nil) ++
+        Judge.candidates(commits, :extended, years: nil)
+
+    warn_unjudged(candidates, labels)
+
     agreement = Report.agreement(original, labels, extended)
 
     if opts[:dev] do
@@ -51,6 +57,16 @@ defmodule Mix.Tasks.Vuln.Report do
     if Enum.all?(labels, fn {_hash, label} -> label.votes == [] end) do
       Mix.shell().info(
         "AVISO: sem julgamentos ainda (#{@judgments}). todo candidato conta como neutral."
+      )
+    end
+  end
+
+  defp warn_unjudged(candidates, labels) do
+    n = Judge.unjudged(candidates, labels)
+
+    if n > 0 do
+      Mix.shell().info(
+        "AVISO: #{n} candidatos com menos de 3 votos válidos; os números de 'nosso' ainda não são finais"
       )
     end
   end

@@ -37,12 +37,18 @@ defmodule Mix.Tasks.Vuln.Judge do
         Mix.shell().info("dry-run: nenhuma chamada feita")
 
       should_run?(calls, opts) ->
-        Judge.run(pairs,
-          dirs: dirs,
-          path: @judgments,
-          model: model,
-          version: version
-        )
+        if api_key_ok?(System.get_env("OPENAI_API_KEY")) do
+          Judge.run(pairs,
+            dirs: dirs,
+            path: @judgments,
+            model: model,
+            version: version
+          )
+        else
+          Mix.raise(
+            "OPENAI_API_KEY não definida ou vazia. defina a chave no ambiente (ou no .env) e rode de novo. nada foi julgado."
+          )
+        end
 
       true ->
         Mix.shell().info("mais de #{@confirm_limit} chamadas: rode de novo com --yes")
@@ -88,6 +94,9 @@ defmodule Mix.Tasks.Vuln.Judge do
       true -> true
     end
   end
+
+  # chave ausente ou vazia impede qualquer chamada; a tarefa para antes de gravar erros no jsonl
+  def api_key_ok?(key), do: key not in [nil, ""]
 
   defp years_text(nil), do: "todos"
   defp years_text(first..last//_), do: "#{first}-#{last}"

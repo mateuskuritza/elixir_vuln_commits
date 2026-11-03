@@ -34,4 +34,10 @@ defmodule Mix.Tasks.Vuln.JudgeTest do
   test "should_run? roda acima de 200 com --yes" do
     assert JudgeTask.should_run?(201, %{dry_run: false, yes: true})
   end
+
+  test "api_key_ok? recusa chave ausente ou vazia" do
+    assert JudgeTask.api_key_ok?("sk-teste")
+    refute JudgeTask.api_key_ok?(nil)
+    refute JudgeTask.api_key_ok?("")
+  end
 end

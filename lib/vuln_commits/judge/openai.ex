@@ -62,8 +62,9 @@ defmodule VulnCommits.Judge.OpenAI do
 
   # uma chamada http; o retry do próprio Req fica desligado (quem tenta de novo é o attempt)
   defp post(key, payload) do
+    # timeout de 60s por chamada; o app env vem depois e pode sobrescrever nos testes
     options =
-      [json: payload, auth: {:bearer, key}, retry: false] ++
+      [json: payload, auth: {:bearer, key}, retry: false, receive_timeout: 60_000] ++
         Application.get_env(:vuln_commits, :openai_req_options, [])
 
     case Req.post(@url, options) do

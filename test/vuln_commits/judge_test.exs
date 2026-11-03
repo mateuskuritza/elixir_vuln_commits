@@ -215,4 +215,34 @@ defmodule VulnCommits.JudgeTest do
              }
     end
   end
+
+  describe "unjudged/2" do
+    test "conta candidatos com menos de 3 votos, sem contar nao candidatos" do
+      commits = [
+        commit("a"),
+        commit("b"),
+        commit("c"),
+        commit("d", bot: true),
+        commit("e", period: :extended)
+      ]
+
+      records = [
+        record("a", 1, "VULNERABLE"),
+        record("a", 2, "VULNERABLE"),
+        record("a", 3, "NEUTRAL"),
+        record("b", 1, "NEUTRAL"),
+        record("b", 2, "VULNERABLE"),
+        record("e", 1, "NEUTRAL")
+      ]
+
+      labels = Judge.labels(commits, records, @model, @version)
+
+      candidates =
+        Judge.candidates(commits, :original, years: nil) ++
+          Judge.candidates(commits, :extended, years: nil)
+
+      # b (2 votos), c (0 votos) e e (1 voto) ficam de fora dos finais
+      assert Judge.unjudged(candidates, labels) == 3
+    end
+  end
 end
