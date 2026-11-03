@@ -125,5 +125,8 @@ defmodule VulnCommits.Judge.OpenAI do
     end
   end
 
+  # modelo usado quando não se passa um: OPENAI_MODEL ou o snapshot padrão
+  def model, do: default_model()
+
   defp default_model, do: System.get_env("OPENAI_MODEL", @default_model)
 end
