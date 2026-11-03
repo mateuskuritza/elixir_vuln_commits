@@ -1,5 +1,5 @@
 # números do relatório: funções puras sobre listas já carregadas.
-# rótulo do modelo: undecided conta como neutral em tudo (R18).
+# rótulo do modelo: undecided conta como neutral em tudo.
 defmodule VulnCommits.Report do
   alias VulnCommits.{Metrics, Vote}
 

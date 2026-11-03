@@ -121,7 +121,7 @@ defmodule VulnCommits.Sample do
   defp blank_to_nil(nil), do: nil
   defp blank_to_nil(text), do: if(String.trim(text) == "", do: nil, else: text)
 
-  # concordância entre o rótulo manual e o final do modelo. undecided conta como neutral (R18).
+  # concordância entre o rótulo manual e o final do modelo. undecided conta como neutral.
   def agreement(manual, model_labels) do
     pairs = Enum.map(manual, &{&1.label, model_final(model_labels, &1.hash)})
 

@@ -1,21 +1,92 @@
 # VulnCommits
 
-**TODO: Add description**
+Ferramenta em Elixir que replica e estende o estudo de commits de correção de vulnerabilidade em projetos Elixir. Ela reaplica o filtro de palavras-chave do artigo (estágio 1), pede a um modelo da OpenAI que julgue os candidatos (estágio 2) e compara o resultado com o rótulo humano do artigo (2012 a 2020) e com uma amostra rotulada à mão (2021 a 2025).
 
-## Installation
+## Pré-requisitos
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `vuln_commits` to your list of dependencies in `mix.exs`:
+- Elixir 1.20 com OTP 29 (`mix --version`).
+- `git` no PATH.
+- Para falar com o GitHub: o `gh` autenticado (`gh auth login`) ou a variável `GITHUB_TOKEN`. Sem nenhum dos dois a consulta funciona, mas com limite menor de requisições.
+- `OPENAI_API_KEY`, só para `mix vuln.judge`. Nenhum outro comando usa a API da OpenAI.
 
-```elixir
-def deps do
-  [
-    {:vuln_commits, "~> 0.1.0"}
-  ]
-end
+As variáveis de ambiente não são lidas de arquivo. Copie `.env.example` para `.env`, preencha e carregue na sessão antes de rodar:
+
+```sh
+cp .env.example .env
+set -a; source .env; set +a
+mix deps.get
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/vuln_commits>.
+Todos os comandos abaixo rodam dentro da pasta `tool/`.
 
+## Pipeline
+
+Cada etapa lê o que a anterior gravou. A ordem é esta:
+
+```
+mix vuln.dataset  ->  vuln.repos  ->  vuln.collect  ->  vuln.sample export
+  ->  vuln.judge (dev 2012-2016, depois avaliação 2017-2020, depois estendido)
+  ->  vuln.sample import  ->  vuln.report
+```
+
+| Comando | Lê | Grava |
+|---|---|---|
+| `mix vuln.dataset` | download do figshare (só se o arquivo não existe) | `data/figshare/ELIXIR_FINAL_SECURITY_BUG_DATASET.csv`; imprime o resumo do dataset |
+| `mix vuln.repos` | o CSV do figshare, o GitHub e `priv/repo_map.exs` | clones em `repos/<nome>` e `data/repos.csv` (qual repositório segue ativo) |
+| `mix vuln.collect` | `data/repos.csv`, o CSV do figshare e os clones | `data/commits.csv` (período original e estendido) e `data/repo_markers.csv` |
+| `mix vuln.sample export` | `data/commits.csv`, `data/repos.csv` e os clones | `data/sample_80.csv`, a planilha de 80 commits para rotular à mão |
+| `mix vuln.judge --period original --years 2012-2016` | `data/commits.csv`, os clones e a API da OpenAI | acrescenta linhas em `data/judgments.jsonl` (conjunto de desenvolvimento) |
+| `mix vuln.judge --period original --years 2017-2020` | idem | idem (conjunto de avaliação) |
+| `mix vuln.judge --period extended` | idem | idem (2021 a 2025) |
+| `mix vuln.sample import` | `data/sample_80_labeled.csv`, `data/commits.csv` e `data/judgments.jsonl` | `out/manual_agreement.csv` |
+| `mix vuln.report` | só `data/` | tabelas e `summary.json` em `out/` |
+
+Observações:
+
+- `vuln.judge` imprime o número de candidatos, de chamadas pendentes e o custo estimado antes de chamar a API. Use `--dry-run` para só ver isso. Acima de 200 chamadas ele exige `--yes`. Execuções repetidas pulam o que já foi julgado com o mesmo modelo e a mesma versão de prompt.
+- O ajuste do prompt e a escolha do modelo só olham os candidatos de 2012 a 2016. A concordância reportada é a de 2017 a 2020. `mix vuln.report --dev` imprime só a concordância de 2012 a 2016.
+- `data/sample_80_labeled.csv` é a cópia da planilha preenchida à mão. Sem ela, `vuln.report` apenas omite a linha da amostra manual.
+
+## O que há em `data/` e `out/`
+
+`data/` (entradas e resultados intermediários, versionados em git, menos os clones):
+
+| Arquivo | Conteúdo |
+|---|---|
+| `figshare/ELIXIR_FINAL_SECURITY_BUG_DATASET.csv` | dataset do artigo: uma linha por par (commit, arquivo), com o rótulo humano |
+| `repos.csv` | um repositório por linha: estrelas, se foi arquivado, branch padrão, hashes esperados e achados, commits Elixir em 2025 e 2026 e se segue ativo |
+| `commits.csv` | um commit por linha, dos dois períodos (`original` e `extended`): data, ano, autor, `keyword_hit`, termos casados, `bot`, marcadores de IA, rótulo humano, arquivos e mensagem |
+| `repo_markers.csv` | arquivos de instrução para agentes de IA (`AGENTS.md`, `CLAUDE.md` etc.) encontrados no histórico de cada repositório, com a data em que apareceram |
+| `sample_80.csv` | amostra estratificada de 80 commits do período estendido, com trecho do diff, para rotular à mão |
+| `sample_80_labeled.csv` | a mesma planilha já rotulada (criada pelo autor, não pela ferramenta) |
+| `judgments.jsonl` | um julgamento do modelo por linha (commit, execução 1 a 3, modelo, versão do prompt, rótulo, categoria CIA, motivo, uso de tokens ou erro). Criado por `vuln.judge` |
+
+`out/` (gerado por `vuln.report`; cada tabela existe em `.tex` para o artigo e `.csv` para conferir):
+
+| Arquivo | Conteúdo |
+|---|---|
+| `match.*` | comparação com os totais do artigo (commits, vulneráveis, proporção, repositórios, arquivos) |
+| `per_year.*` | proporção de commits vulneráveis por ano, 2012 a 2025 |
+| `agreement.*` | concordância modelo x humano (matriz de confusão, precisão, revocação, F1, kappa) e entre as 3 execuções |
+| `ai_markers.*` | commits com e sem marcador de IA na mensagem, por ano (2021 a 2025) |
+| `ai_repo_files.*` | arquivos de instrução de IA nos repositórios |
+| `bots.*` | commits de bots por ano |
+| `summary.json` | todos os números acima em um só arquivo, mais o modelo e a versão do prompt |
+| `manual_agreement.csv` | kappa e matriz de confusão contra a amostra manual (criado por `vuln.sample import`) |
+
+`repos/` guarda os clones (grandes) e `.env` guarda as chaves. Nenhum dos dois vai para o git.
+
+## Reproduzir sem rede
+
+`mix vuln.report` só lê arquivos de `data/` (`commits.csv`, `repo_markers.csv`, `judgments.jsonl` e, se existir, `sample_80_labeled.csv`). Não usa rede, clones nem chave. Com os dados versionados, `mix deps.get && mix vuln.report` refaz todas as tabelas de `out/`. Se `judgments.jsonl` não existe, o comando avisa e trata todo candidato como neutro. Os testes (`mix test`) também rodam sem rede, com a API do GitHub e da OpenAI simuladas.
+
+## Modelo e prompt
+
+- Modelo: `gpt-4.1-mini-2025-04-14`, fixado por snapshot. Troque com `OPENAI_MODEL`.
+- Prompt: versão `v1`, em `priv/prompts/v1.md`. Troque com `OPENAI_PROMPT_VERSION` (o arquivo `priv/prompts/<versão>.md` precisa existir).
+- Cada candidato é julgado 3 vezes (`temperature: 0`, `seed` 1, 2 e 3). O rótulo final é a maioria, com pelo menos 2 votos iguais. O diff vai truncado em 12.000 bytes, com prioridade para arquivos Elixir.
+- `vuln.report` e `vuln.sample import` só usam os julgamentos do modelo e da versão de prompt vigentes (os mesmos valores padrão ou das variáveis acima).
+
+## Regra do estágio 1 (palavras-chave)
+
+A mensagem do commit é posta em minúsculas e separada em tokens (tudo que não é letra, dígito ou `_` vira separador). Um termo da lista de 48 do artigo casa quando seus tokens aparecem na mensagem, um logo após o outro, e cada token da mensagem é o token do termo, o token com um sufixo (`s`, `es`, `ed`, `d`, `ing`, `er`, `ers`) ou, para termos terminados em `e` ou `y`, a variante do radical (`race` casa `racing`, `violate` casa `violation`, `vulnerability` casa `vulnerabilities`). Termos compostos são tokens adjacentes: `gain access`, `cross site`, `request forgery` e `denial service`. Este último é literal, como está na lista do artigo, então a frase `denial of service` não casa. Um commit com pelo menos um termo casado tem `keyword_hit` e vira candidato ao estágio 2, desde que não seja de bot.

@@ -1,4 +1,4 @@
-# orquestracao do estagio 2: escolhe os candidatos, roda o juiz e junta os votos
+# orquestração do estágio 2: escolhe os candidatos, roda o juiz e junta os votos
 defmodule VulnCommits.Judge do
   alias VulnCommits.{Commit, Vote}
   alias VulnCommits.Judge.{OpenAI, Prompt, Store}

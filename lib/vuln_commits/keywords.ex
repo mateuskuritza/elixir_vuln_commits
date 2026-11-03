@@ -37,7 +37,7 @@ defmodule VulnCommits.Keywords do
     [token | Enum.map(@suffixes, &(token <> &1))] ++ stem_forms
   end
 
-  # formas de cada termo, calculadas uma vez na compilacao.
+  # formas de cada termo, calculadas uma vez na compilação.
   # lista de {termo, [formas do 1o token, formas do 2o token, ...]}, na ordem de @terms
   @term_forms Enum.map(@terms, fn term ->
                 {term, Enum.map(String.split(term, " "), token_forms)}
