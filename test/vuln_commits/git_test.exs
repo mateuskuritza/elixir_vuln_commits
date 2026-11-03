@@ -88,6 +88,18 @@ defmodule VulnCommits.GitTest do
     assert Git.default_branch(clone) == "main"
   end
 
+  test "update traz commits novos e anda o HEAD do clone", fx do
+    clone = Path.join(System.tmp_dir!(), "vuln_clone_#{System.unique_integer([:positive])}")
+    on_exit(fn -> File.rm_rf(clone) end)
+    {_, 0} = System.cmd("git", ["clone", "-q", "--no-checkout", fx.dir, clone])
+
+    {_, 0} = System.cmd("git", ["commit", "-q", "--allow-empty", "-m", "novo"], cd: fx.dir)
+    {novo, 0} = System.cmd("git", ["rev-parse", "HEAD"], cd: fx.dir)
+
+    assert Git.update(clone) == :ok
+    assert Git.head(clone, "HEAD") == String.trim(novo)
+  end
+
   test "clone_url monta a url do github" do
     assert Git.clone_url("owner/repo") == "https://github.com/owner/repo.git"
   end

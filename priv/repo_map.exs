@@ -1,0 +1,22 @@
+# nome do repositório no dataset -> dono/repositório no github
+%{
+  "absinthe" => "absinthe-graphql/absinthe",
+  "phoenix" => "phoenixframework/phoenix",
+  "credo" => "rrrene/credo",
+  "analytics" => "plausible/analytics",
+  "guardian" => "ueberauth/guardian",
+  "quantum-core" => "quantum-elixir/quantum-core",
+  "papercups" => "papercups-io/papercups",
+  "distillery" => "bitwalker/distillery",
+  "edeliver" => "edeliver/edeliver",
+  "httpoison" => "edgurgel/httpoison",
+  "elixir-koans" => "elixirkoans/elixir-koans",
+  "poison" => "devinus/poison",
+  "phoenix-trello" => "bigardone/phoenix-trello",
+  "30-days-of-elixir" => "seven1m/30-days-of-elixir",
+  "rustler" => "rusterlium/rustler",
+  "realtime" => "supabase/realtime",
+  "awesome-elixir" => "h4cc/awesome-elixir",
+  "curlconverter" => "curlconverter/curlconverter",
+  "elixir" => "elixir-lang/elixir"
+}

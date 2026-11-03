@@ -27,7 +27,9 @@ defmodule VulnCommits.MixProject do
   defp deps do
     [
       {:req, "~> 0.7.5"},
-      {:nimble_csv, "~> 1.3"}
+      {:nimble_csv, "~> 1.3"},
+      # Req.Test (stub do github nos testes) precisa do plug
+      {:plug, "~> 1.0", only: :test}
     ]
   end
 end

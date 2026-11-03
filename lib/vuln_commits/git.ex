@@ -32,6 +32,19 @@ defmodule VulnCommits.Git do
     end
   end
 
+  # atualiza um clone que já existe: traz o que mudou e anda a branch local
+  # (o clone é sem checkout, então o HEAD pode acompanhar o origin sem problema)
+  def update(dir) do
+    case System.cmd("git", ["fetch", "-q", "--all", "--tags"], cd: dir, stderr_to_stdout: true) do
+      {_, 0} ->
+        git!(dir, ["update-ref", "HEAD", "refs/remotes/origin/HEAD"])
+        :ok
+
+      {out, _code} ->
+        {:error, out}
+    end
+  end
+
   def default_branch(dir) do
     dir
     |> git!(["symbolic-ref", "refs/remotes/origin/HEAD"])
@@ -49,8 +62,9 @@ defmodule VulnCommits.Git do
     status == 0
   end
 
-  # o git filtra com folga de um dia em cada ponta e a regra de verdade é aqui,
-  # pela data do commit (a do próprio fuso dele)
+  # o git só corta o fim (--until, com folga de um dia) e a regra de verdade é aqui,
+  # pela data do commit (a do próprio fuso dele). sem --since de propósito: em
+  # histórico reescrito, com datas fora de ordem, o git para de andar cedo demais.
   def log(dir, ref, opts) do
     since = Keyword.fetch!(opts, :since)
     until = Keyword.fetch!(opts, :until)
@@ -59,7 +73,6 @@ defmodule VulnCommits.Git do
       [
         "log",
         "--format=" <> @format,
-        "--since=#{Date.add(since, -1)}T00:00:00",
         "--until=#{Date.add(until, 1)}T23:59:59"
       ] ++
         if(Keyword.get(opts, :no_merges, false), do: ["--no-merges"], else: []) ++ [ref]
