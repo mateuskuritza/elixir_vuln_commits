@@ -25,4 +25,15 @@ defmodule VulnCommits.BotsTest do
   test "campos nil nao quebram e nao viram bot" do
     refute Bots.bot?(%Commit{author_name: nil, author_email: nil})
   end
+
+  test "regra do e-mail noreply sozinha (nome sem dependabot)" do
+    assert Bots.bot?(%Commit{
+             author_name: "Fulano",
+             author_email: "12345+fulano[bot]@users.noreply.github.com"
+           })
+  end
+
+  test "regra do sufixo [bot] sozinha" do
+    assert Bots.bot?(%Commit{author_name: "meu-app[bot]", author_email: "x@y.com"})
+  end
 end

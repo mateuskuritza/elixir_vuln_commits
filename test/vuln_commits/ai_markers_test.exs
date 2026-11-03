@@ -14,6 +14,10 @@ defmodule VulnCommits.AiMarkersTest do
     assert AiMarkers.in_message("move cursor to end") == ["cursor"]
   end
 
+  test "mensagem nil nao quebra" do
+    assert AiMarkers.in_message(nil) == []
+  end
+
   test "mensagem sem marcador" do
     assert AiMarkers.in_message("fix typo") == []
   end

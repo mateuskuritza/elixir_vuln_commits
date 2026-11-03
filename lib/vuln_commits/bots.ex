@@ -8,10 +8,15 @@ defmodule VulnCommits.Bots do
   # e-mail noreply de conta bot do github, ex.: 49699333+dependabot[bot]@users.noreply.github.com
   @noreply ~r/^\d+\+.*\[bot\]@users\.noreply\.github\.com$/
 
-  # nil vira "" para não quebrar em commits sem autor
   def bot?(%Commit{author_name: name, author_email: email}) do
-    Enum.any?([name, email], &bot_text?(String.downcase(&1 || "")))
+    name = normalize(name)
+    email = normalize(email)
+    bot_text?(name) or bot_text?(email)
   end
+
+  # minúsculas, e nil vira "" para não quebrar em commits sem autor
+  defp normalize(nil), do: ""
+  defp normalize(text), do: String.downcase(text)
 
   defp bot_text?(text) do
     Enum.any?(@names, &String.contains?(text, &1)) or

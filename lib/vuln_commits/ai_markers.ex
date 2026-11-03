@@ -15,6 +15,8 @@ defmodule VulnCommits.AiMarkers do
 
   # marcadores que aparecem na mensagem, na ordem da lista e sem repetir.
   # "cursor" também casa o sentido de posição do editor (falso positivo conhecido).
+  def in_message(nil), do: []
+
   def in_message(message) do
     text = message |> Text.scrub() |> String.downcase()
     Enum.filter(@markers, fn marker -> String.contains?(text, marker) end)
