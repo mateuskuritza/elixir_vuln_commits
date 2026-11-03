@@ -149,6 +149,33 @@ defmodule VulnCommits.JudgeTest do
       assert length(records) == 3
       assert Enum.all?(records, &(&1.label == "ERROR" and &1.error == ":boom"))
     end
+
+    test "excecao do juiz vira ERROR e os outros pares continuam", %{path: path} do
+      pairs = Judge.pending([commit("a"), commit("b")], MapSet.new(), @model, @version)
+
+      raising = fn commit, _dir, _run ->
+        if commit.hash == "a", do: raise("diff quebrado"), else: ok_judge(commit, nil, 1)
+      end
+
+      capture_io(fn ->
+        assert :ok =
+                 Judge.run(pairs,
+                   dirs: %{"org/repo" => "/nao/usado"},
+                   path: path,
+                   model: @model,
+                   version: @version,
+                   judge_fun: raising
+                 )
+      end)
+
+      records = Store.load(path)
+      assert length(records) == 6
+
+      errors = Enum.filter(records, &(&1.label == "ERROR"))
+      assert [%{hash: "a", error: error}, _, _] = errors
+      assert error == ~s({:exception, "diff quebrado"})
+      assert Enum.count(records, &(&1.hash == "b" and &1.label == "VULNERABLE")) == 3
+    end
   end
 
   describe "labels/4" do

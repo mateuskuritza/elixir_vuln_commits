@@ -40,7 +40,8 @@ defmodule VulnCommits.Judge do
     pairs
     |> Task.async_stream(
       fn {commit, run} ->
-        judge_fun.(commit, Map.get(dirs, commit.repo), run)
+        commit
+        |> safe_judge(Map.get(dirs, commit.repo), run, judge_fun)
         |> to_record(commit, run, model, version)
       end,
       max_concurrency: @max_concurrency,
@@ -54,6 +55,13 @@ defmodule VulnCommits.Judge do
 
     IO.puts("julgados #{total} de #{total}")
     :ok
+  end
+
+  # exceção dentro do juiz (ex.: git diff que falha) vira erro, sem derrubar o run
+  defp safe_judge(commit, dir, run, judge_fun) do
+    judge_fun.(commit, dir, run)
+  rescue
+    e -> {:error, {:exception, Exception.message(e)}}
   end
 
   # juiz padrão: monta o prompt do estágio 2 e chama a openai com a seed do run
