@@ -1,0 +1,6 @@
+conjunto,n,VP,FP,FN,VN,precisão,revocação,F1,kappa
+avaliação (2017-2020),1953,0,0,44,1909,0.0,0.0,0.0,0.0
+desenvolvimento (2012-2016),2230,0,0,45,2185,0.0,0.0,0.0,0.0
+todos (2012-2020),4183,0,0,89,4094,0.0,0.0,0.0,0.0
+entre execuções (kappa médio),0,,,,,,,,
+entre execuções (kappa mínimo),0,,,,,,,,

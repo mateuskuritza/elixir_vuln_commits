@@ -1,0 +1,281 @@
+{
+  "match": [
+    {
+      "paper": 4446,
+      "human_active": 4183,
+      "ours": 4183,
+      "metric": "commits"
+    },
+    {
+      "paper": 90,
+      "human_active": 89,
+      "ours": 0,
+      "metric": "vulneráveis"
+    },
+    {
+      "paper": 2.0,
+      "human_active": 2.13,
+      "ours": 0.0,
+      "metric": "proporção (%)"
+    },
+    {
+      "paper": 25,
+      "human_active": 11,
+      "ours": 11,
+      "metric": "repositórios"
+    },
+    {
+      "paper": 9,
+      "human_active": 8,
+      "ours": 0,
+      "metric": "repositórios com ≥1 vulnerável"
+    },
+    {
+      "paper": 1769,
+      "human_active": 1572,
+      "ours": 1572,
+      "metric": "arquivos"
+    },
+    {
+      "paper": 319,
+      "human_active": 305,
+      "ours": 0,
+      "metric": "arquivos em vulneráveis"
+    },
+    {
+      "paper": 18.03,
+      "human_active": 19.4,
+      "ours": 0.0,
+      "metric": "arquivos em vulneráveis (%)"
+    }
+  ],
+  "manual": null,
+  "agreement": {
+    "all": {
+      "precision": 0.0,
+      "n": 4183,
+      "confusion": {
+        "true_pos": 0,
+        "false_pos": 0,
+        "false_neg": 89,
+        "true_neg": 4094
+      },
+      "recall": 0.0,
+      "f1": 0.0,
+      "kappa": 0.0
+    },
+    "eval": {
+      "precision": 0.0,
+      "n": 1953,
+      "confusion": {
+        "true_pos": 0,
+        "false_pos": 0,
+        "false_neg": 44,
+        "true_neg": 1909
+      },
+      "recall": 0.0,
+      "f1": 0.0,
+      "kappa": 0.0
+    },
+    "dev": {
+      "precision": 0.0,
+      "n": 2230,
+      "confusion": {
+        "true_pos": 0,
+        "false_pos": 0,
+        "false_neg": 45,
+        "true_neg": 2185
+      },
+      "recall": 0.0,
+      "f1": 0.0,
+      "kappa": 0.0
+    },
+    "runs": {
+      "n": 0,
+      "undecided": 1142,
+      "mean_kappa": null,
+      "min_kappa": null,
+      "unanimous_pct": null
+    }
+  },
+  "model": "gpt-4.1-mini-2025-04-14",
+  "per_year": [
+    {
+      "year": 2012,
+      "commits": 106,
+      "paper": 0.94,
+      "human_active": 0.94,
+      "ours": 0.0
+    },
+    {
+      "year": 2013,
+      "commits": 407,
+      "paper": 0.48,
+      "human_active": 0.49,
+      "ours": 0.0
+    },
+    {
+      "year": 2014,
+      "commits": 484,
+      "paper": 1.74,
+      "human_active": 1.86,
+      "ours": 0.0
+    },
+    {
+      "year": 2015,
+      "commits": 480,
+      "paper": 3.38,
+      "human_active": 3.54,
+      "ours": 0.0
+    },
+    {
+      "year": 2016,
+      "commits": 753,
+      "paper": 1.92,
+      "human_active": 2.12,
+      "ours": 0.0
+    },
+    {
+      "year": 2017,
+      "commits": 639,
+      "paper": 1.22,
+      "human_active": 1.25,
+      "ours": 0.0
+    },
+    {
+      "year": 2018,
+      "commits": 522,
+      "paper": 1.05,
+      "human_active": 1.15,
+      "ours": 0.0
+    },
+    {
+      "year": 2019,
+      "commits": 444,
+      "paper": 3.45,
+      "human_active": 3.6,
+      "ours": 0.0
+    },
+    {
+      "year": 2020,
+      "commits": 348,
+      "paper": 3.85,
+      "human_active": 4.02,
+      "ours": 0.0
+    },
+    {
+      "year": 2021,
+      "commits": 2069,
+      "paper": null,
+      "human_active": null,
+      "ours": 0.0
+    },
+    {
+      "year": 2022,
+      "commits": 2398,
+      "paper": null,
+      "human_active": null,
+      "ours": 0.0
+    },
+    {
+      "year": 2023,
+      "commits": 1989,
+      "paper": null,
+      "human_active": null,
+      "ours": 0.0
+    },
+    {
+      "year": 2024,
+      "commits": 2091,
+      "paper": null,
+      "human_active": null,
+      "ours": 0.0
+    },
+    {
+      "year": 2025,
+      "commits": 2067,
+      "paper": null,
+      "human_active": null,
+      "ours": 0.0
+    }
+  ],
+  "bots": [
+    {
+      "total": 2069,
+      "year": 2021,
+      "bots": 0
+    },
+    {
+      "total": 2401,
+      "year": 2022,
+      "bots": 3
+    },
+    {
+      "total": 1992,
+      "year": 2023,
+      "bots": 3
+    },
+    {
+      "total": 2093,
+      "year": 2024,
+      "bots": 2
+    },
+    {
+      "total": 2069,
+      "year": 2025,
+      "bots": 2
+    }
+  ],
+  "ai": {
+    "per_year": [
+      {
+        "year": 2021,
+        "with_marker": 11,
+        "vulnerable_with": 0,
+        "without_marker": 2058,
+        "vulnerable_without": 0
+      },
+      {
+        "year": 2022,
+        "with_marker": 4,
+        "vulnerable_with": 0,
+        "without_marker": 2394,
+        "vulnerable_without": 0
+      },
+      {
+        "year": 2023,
+        "with_marker": 6,
+        "vulnerable_with": 0,
+        "without_marker": 1983,
+        "vulnerable_without": 0
+      },
+      {
+        "year": 2024,
+        "with_marker": 4,
+        "vulnerable_with": 0,
+        "without_marker": 2087,
+        "vulnerable_without": 0
+      },
+      {
+        "year": 2025,
+        "with_marker": 5,
+        "vulnerable_with": 0,
+        "without_marker": 2062,
+        "vulnerable_without": 0
+      }
+    ],
+    "repo_files": [
+      {
+        "file": "AGENTS.md",
+        "repo": "elixir",
+        "first_added": "2026-06-15"
+      },
+      {
+        "file": "AGENTS.md",
+        "repo": "realtime",
+        "first_added": "2026-10-06"
+      }
+    ]
+  },
+  "prompt_version": "v1"
+}
