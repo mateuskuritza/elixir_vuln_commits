@@ -55,6 +55,23 @@ defmodule VulnCommits.KeywordsTest do
     assert Keywords.match("crash crash and race") == ["race", "crash"]
   end
 
+  test "radical comum nao casa com termo parecido (hole, format)" do
+    assert Keywords.match("hold the lock") == []
+    assert Keywords.match("holy cow") == []
+    assert Keywords.match("code formation") == []
+  end
+
+  test "racy nao vira race e race nao vira racy" do
+    assert Keywords.match("fix racy code") == ["racy"]
+    assert Keywords.match("racing condition") == ["race"]
+  end
+
+  test "sufixos de e e y final" do
+    assert Keywords.match("violating rules") == ["violate"]
+    assert Keywords.match("exposing secrets") == ["expose"]
+    assert Keywords.match("crashes") == ["crash"]
+  end
+
   test "hit?" do
     refute Keywords.hit?("nothing here")
     assert Keywords.hit?("fix crash")

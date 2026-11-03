@@ -15,8 +15,33 @@ defmodule VulnCommits.Keywords do
            ~w(csrf xsrf forged security vulnerability vulnerable hole exploit attack
               bypass backdoor threat expose breach violate fatal blacklist overrun insecure)
 
-  # o que pode vir colado no fim de um token do termo
-  @suffixes ["s", "es", "ed", "d", "ing", "ion", "ions", "er", "ers", "y", "ies"]
+  # sufixos que podem vir colados direto no token do termo
+  @suffixes ["s", "es", "ed", "d", "ing", "er", "ers"]
+
+  # formas aceitas de um token: ele mesmo, com sufixo, e o radical de termo em e ou y.
+  # ex.: race -> racing, violate -> violations, vulnerability -> vulnerabilities
+  token_forms = fn token ->
+    stem_forms =
+      cond do
+        String.ends_with?(token, "e") ->
+          stem = String.slice(token, 0..-2//1)
+          Enum.map(["ing", "ion", "ions"], &(stem <> &1))
+
+        String.ends_with?(token, "y") ->
+          [String.slice(token, 0..-2//1) <> "ies"]
+
+        true ->
+          []
+      end
+
+    [token | Enum.map(@suffixes, &(token <> &1))] ++ stem_forms
+  end
+
+  # formas de cada termo, calculadas uma vez na compilacao.
+  # lista de {termo, [formas do 1o token, formas do 2o token, ...]}, na ordem de @terms
+  @term_forms Enum.map(@terms, fn term ->
+                {term, Enum.map(String.split(term, " "), token_forms)}
+              end)
 
   def terms, do: @terms
 
@@ -33,37 +58,23 @@ defmodule VulnCommits.Keywords do
   def match(text) do
     tokens = text |> normalize() |> String.split(" ", trim: true)
 
-    Enum.filter(@terms, fn term ->
-      match_at?(tokens, String.split(term, " "))
-    end)
+    for {term, forms} <- @term_forms, match_at?(tokens, forms), do: term
   end
 
   def hit?(text), do: match(text) != []
 
   # o termo aparece em algum ponto da lista de tokens? (recursão na cabeça da lista)
-  defp match_at?([], _term_tokens), do: false
+  defp match_at?([], _forms), do: false
 
-  defp match_at?([_ | rest] = tokens, term_tokens) do
-    run?(tokens, term_tokens) or match_at?(rest, term_tokens)
+  defp match_at?([_ | rest] = tokens, forms) do
+    run?(tokens, forms) or match_at?(rest, forms)
   end
 
-  # tokens consecutivos a partir daqui casam com todos os tokens do termo
+  # tokens consecutivos a partir daqui casam com as formas de cada token do termo
   defp run?(_tokens, []), do: true
-  defp run?([], _term_tokens), do: false
+  defp run?([], _forms), do: false
 
-  defp run?([token | rest], [term_token | term_rest]) do
-    token in forms(term_token) and run?(rest, term_rest)
-  end
-
-  # formas aceitas de um token do termo: ele mesmo, mais sufixo, e as variações de e/y final
-  defp forms(term_token) do
-    stems =
-      cond do
-        String.ends_with?(term_token, "e") -> [term_token, String.slice(term_token, 0..-2//1)]
-        String.ends_with?(term_token, "y") -> [term_token, String.slice(term_token, 0..-2//1)]
-        true -> [term_token]
-      end
-
-    [term_token | for(stem <- stems, suffix <- @suffixes, do: stem <> suffix)]
+  defp run?([token | rest], [token_forms | forms_rest]) do
+    token in token_forms and run?(rest, forms_rest)
   end
 end
