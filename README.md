@@ -1,6 +1,6 @@
 # VulnCommits
 
-Ferramenta em Elixir que replica e estende o estudo de commits de correção de vulnerabilidade em projetos Elixir. Ela reaplica o filtro de palavras-chave do artigo (estágio 1), pede a um modelo da OpenAI que julgue os candidatos (estágio 2) e compara o resultado com o rótulo humano do artigo (2012 a 2020) e com uma amostra rotulada à mão (2021 a 2025).
+Ferramenta em Elixir que replica e estende o estudo de commits de correção de vulnerabilidade em projetos Elixir. Ela reaplica o filtro de palavras-chave do artigo (estágio 1), pede a um modelo de linguagem que julgue os candidatos (estágio 2) e compara o resultado com o rótulo humano do artigo (2012 a 2020) e com uma amostra rotulada à mão (2021 a 2025).
 
 ## Pré-requisitos
 
@@ -82,10 +82,24 @@ Observações:
 
 ## Modelo e prompt
 
-- Modelo: `gpt-4.1-mini-2025-04-14`, fixado por snapshot. Troque com `OPENAI_MODEL`.
-- Prompt: versão `v1`, em `priv/prompts/v1.md`. Troque com `OPENAI_PROMPT_VERSION` (o arquivo `priv/prompts/<versão>.md` precisa existir).
-- Cada candidato é julgado 3 vezes (`temperature: 0`, `seed` 1, 2 e 3). O rótulo final é a maioria, com pelo menos 2 votos iguais. O diff vai truncado em 12.000 bytes, com prioridade para arquivos Elixir.
-- `vuln.report` e `vuln.sample import` só usam os julgamentos do modelo e da versão de prompt vigentes (os mesmos valores padrão ou das variáveis acima).
+- Os julgamentos versionados em `data/judgments.jsonl` foram feitos por agentes do modelo `claude-opus-5-5`, pelo caminho `mix vuln.agents` (descrito abaixo), e não pela API da OpenAI. O nome do modelo gravado vem de `JUDGE_MODEL` (padrão `claude-opus-5-5`).
+- Prompt: versão `v2`, em `priv/prompts/v2.md` (padrão). A `v1` foi a primeira tentativa e ficou guardada, com os julgamentos dela no conjunto de 2012 a 2016. Troque com `OPENAI_PROMPT_VERSION` (o arquivo `priv/prompts/<versão>.md` precisa existir).
+- Cada candidato é julgado 3 vezes, em execuções independentes. O rótulo final é a maioria, com pelo menos 2 votos iguais. O diff vai truncado em 12.000 bytes, com prioridade para arquivos Elixir.
+- `vuln.report` e `vuln.sample import` só usam os julgamentos do modelo e da versão de prompt vigentes.
+
+### Julgamento por agentes (`mix vuln.agents`)
+
+```sh
+mix vuln.agents export --period original --years 2012-2016 --run 1 --out lotes/run1
+# cada lotes/run1/batch-NNN.md é lido por um agente, que grava batch-NNN.out.jsonl
+mix vuln.agents import --run 1 --out lotes/run1
+```
+
+`export` grava lotes de 20 commits, cada um com as instruções do prompt, a mensagem, os arquivos e o diff truncado. Cada lote é entregue a um agente novo, sem memória dos outros lotes nem das outras execuções, que devolve uma linha JSON por commit. `import` confere os hashes e acrescenta os julgamentos em `data/judgments.jsonl`. Por esse caminho não há controle de `temperature` nem de `seed`; a variação entre as 3 execuções é medida pelo kappa entre execuções em `out/agreement.*`.
+
+### Julgamento pela API da OpenAI (`mix vuln.judge`)
+
+Caminho alternativo, implementado e testado, mas não usado nos dados versionados: modelo `gpt-4.1-mini-2025-04-14` (troque com `OPENAI_MODEL`), `temperature: 0` e `seed` 1, 2 e 3.
 
 ## Regra do estágio 1 (palavras-chave)
 

@@ -76,12 +76,12 @@ defmodule VulnCommits.Judge.PromptTest do
     assert text =~ "Otherwise NEUTRAL."
   end
 
-  test "version padrao e v1 e le OPENAI_PROMPT_VERSION" do
+  test "version padrao e v2 e le OPENAI_PROMPT_VERSION" do
     System.delete_env("OPENAI_PROMPT_VERSION")
-    assert Prompt.version() == "v1"
-
-    System.put_env("OPENAI_PROMPT_VERSION", "v2")
     assert Prompt.version() == "v2"
+
+    System.put_env("OPENAI_PROMPT_VERSION", "v1")
+    assert Prompt.version() == "v1"
   after
     System.delete_env("OPENAI_PROMPT_VERSION")
   end

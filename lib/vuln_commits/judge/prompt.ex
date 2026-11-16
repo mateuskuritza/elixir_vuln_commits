@@ -6,7 +6,7 @@ defmodule VulnCommits.Judge.Prompt do
   @max_bytes 12_000
 
   # versão do prompt vem do ambiente; padrão v1
-  def version, do: System.get_env("OPENAI_PROMPT_VERSION", "v1")
+  def version, do: System.get_env("OPENAI_PROMPT_VERSION", "v2")
 
   # conteúdo de priv/prompts/<version>.md
   def system(version) do
