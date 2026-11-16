@@ -48,7 +48,8 @@ defmodule Mix.Tasks.Vuln.Agents do
     Enum.each(index, fn %{"path" => path, "hashes" => hashes} ->
       answer = String.replace_suffix(path, ".md", ".out.jsonl")
 
-      with true <- File.exists?(answer),
+      with false <- File.exists?(answer <> ".imported"),
+           true <- File.exists?(answer),
            {:ok, judgments} <- Batch.parse(File.read!(answer), hashes) do
         Batch.store(judgments, commits, @judgments,
           run: opts.run,
@@ -59,6 +60,8 @@ defmodule Mix.Tasks.Vuln.Agents do
         File.rename!(answer, answer <> ".imported")
         Mix.shell().info("importado #{answer} (#{length(judgments)})")
       else
+        # lote já importado antes: nada a fazer
+        true -> :ok
         false -> Mix.shell().info("sem resposta ainda: #{answer}")
         {:error, why} -> Mix.shell().error("resposta inválida em #{answer}: #{inspect(why)}")
       end
