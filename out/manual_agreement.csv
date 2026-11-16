@@ -1,0 +1,7 @@
+metric,value
+kappa,0.6903
+n,80
+true_pos,10
+false_pos,6
+false_neg,1
+true_neg,63

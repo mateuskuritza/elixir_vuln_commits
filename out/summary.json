@@ -49,7 +49,16 @@
       "metric": "arquivos em vulneráveis (%)"
     }
   ],
-  "manual": null,
+  "manual": {
+    "n": 80,
+    "confusion": {
+      "true_pos": 10,
+      "false_pos": 6,
+      "false_neg": 1,
+      "true_neg": 63
+    },
+    "kappa": 0.6902654867256636
+  },
   "agreement": {
     "all": {
       "precision": 0.6372549019607843,
