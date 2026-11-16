@@ -3,7 +3,7 @@ defmodule Mix.Tasks.Vuln.Report do
   use Mix.Task
 
   alias VulnCommits.{Collect, CSV, Judge, Latex, Metrics, Report, Sample}
-  alias VulnCommits.Judge.{OpenAI, Prompt, Store}
+  alias VulnCommits.Judge.{Batch, Prompt, Store}
 
   @shortdoc "Gera as tabelas do relatório em out/ (use --dev para só a concordância de 2012-2016)"
 
@@ -22,7 +22,7 @@ defmodule Mix.Tasks.Vuln.Report do
     extended = Enum.filter(commits, &(&1.period == :extended))
 
     records = Store.load(@judgments)
-    labels = Judge.labels(commits, records, OpenAI.model(), Prompt.version())
+    labels = Judge.labels(commits, records, Batch.model(), Prompt.version())
     warn_if_empty(labels)
 
     candidates =
@@ -39,7 +39,7 @@ defmodule Mix.Tasks.Vuln.Report do
       markers = load_markers()
 
       summary = %{
-        model: OpenAI.model(),
+        model: Batch.model(),
         prompt_version: Prompt.version(),
         match: Report.match(original, labels),
         per_year: Report.per_year(original, extended, labels),

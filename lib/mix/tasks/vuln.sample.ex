@@ -3,7 +3,7 @@ defmodule Mix.Tasks.Vuln.Sample do
   use Mix.Task
 
   alias VulnCommits.{Collect, CSV, Judge, Repos, Sample}
-  alias VulnCommits.Judge.{OpenAI, Prompt, Store}
+  alias VulnCommits.Judge.{Batch, Prompt, Store}
 
   @shortdoc "Amostra manual de 80 commits: mix vuln.sample export | import"
 
@@ -58,7 +58,7 @@ defmodule Mix.Tasks.Vuln.Sample do
         |> Enum.filter(&MapSet.member?(hashes, &1.hash))
 
       model_labels =
-        Judge.labels(sampled, Store.load(@judgments), OpenAI.model(), Prompt.version())
+        Judge.labels(sampled, Store.load(@judgments), Batch.model(), Prompt.version())
 
       warn_unjudged(sampled, model_labels)
       result = Sample.agreement(manual, model_labels)

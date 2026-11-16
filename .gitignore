@@ -28,3 +28,4 @@ vuln_commits-*.tar
 # chaves da openai (nunca versionar)
 /.env
 
+/lotes/
