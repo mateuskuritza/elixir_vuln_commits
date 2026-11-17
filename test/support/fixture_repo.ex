@@ -1,7 +1,4 @@
-# repositório git de mentira, só para os testes do módulo Git
 defmodule FixtureRepo do
-  # cria o repo num diretório temporário único e devolve os hashes de cada commit.
-  # quem chama limpa o diretório (on_exit).
   def create!() do
     dir = Path.join(System.tmp_dir!(), "vuln_fixture_#{System.unique_integer([:positive])}")
     File.mkdir_p!(dir)
@@ -15,14 +12,12 @@ defmodule FixtureRepo do
     b = commit!(dir, "2021-03-02", "Fix crash on nil", ["lib/a.ex", "README.md"])
     c = commit!(dir, "2022-01-10", "Bump plug", ["mix.lock"], "dependabot[bot]")
 
-    # G fica fora da main: branch criada, taggeada e apagada
     git!(dir, ["checkout", "-q", "-b", "old-branch", a])
     g = commit!(dir, "2019-01-01", "add g", ["lib/g.ex"])
     git!(dir, ["tag", "old"])
     git!(dir, ["checkout", "-q", "main"])
     git!(dir, ["branch", "-q", "-D", "old-branch"])
 
-    # F numa branch que sai de C, entra na main pelo merge M
     git!(dir, ["checkout", "-q", "-b", "feature", c])
     f = commit!(dir, "2024-06-01", "feature", ["lib/f.ex"])
     git!(dir, ["checkout", "-q", "main"])
@@ -44,7 +39,6 @@ defmodule FixtureRepo do
     [{"GIT_AUTHOR_DATE", stamp}, {"GIT_COMMITTER_DATE", stamp}]
   end
 
-  # escreve os arquivos, commita na data fixa e devolve o hash
   defp commit!(dir, day, message, files, author \\ "Fulano") do
     Enum.each(files, fn file ->
       path = Path.join(dir, file)

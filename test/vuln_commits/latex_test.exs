@@ -1,4 +1,3 @@
-# testes da tabela em latex
 defmodule VulnCommits.LatexTest do
   use ExUnit.Case, async: true
 

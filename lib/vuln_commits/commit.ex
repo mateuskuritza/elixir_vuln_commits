@@ -1,4 +1,3 @@
-# struct de um commit. os campos são preenchidos aos poucos pelos estágios.
 defmodule VulnCommits.Commit do
   defstruct repo: nil,
             hash: nil,
@@ -17,7 +16,6 @@ defmodule VulnCommits.Commit do
             human_label: nil,
             period: nil
 
-  # uma cláusula por extensão aceita. "bin/iex" sem extensão cai na última.
   def elixir_file?(path) do
     elixir_extension?(Path.extname(path))
   end
@@ -29,6 +27,5 @@ defmodule VulnCommits.Commit do
   defp elixir_extension?(".leex"), do: true
   defp elixir_extension?(_), do: false
 
-  # ano sai da data do commit.
   def year_of(%__MODULE__{date: date}), do: date.year
 end

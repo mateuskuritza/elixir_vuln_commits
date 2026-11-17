@@ -10,10 +10,12 @@ defmodule VulnCommits.AiMarkersTest do
   end
 
   test "marcador fora de linha de atribuicao nao conta" do
-    # cursor no sentido de posicao do editor, ou o nome da ferramenta citado no texto
     assert AiMarkers.in_message("move cursor to end") == []
     assert AiMarkers.in_message("add ChatGPT favicon") == []
-    assert AiMarkers.in_message("fix\n\nCo-authored-by: Cursor <cursoragent@cursor.com>") == ["cursor"]
+
+    assert AiMarkers.in_message("fix\n\nCo-authored-by: Cursor <cursoragent@cursor.com>") == [
+             "cursor"
+           ]
   end
 
   test "mensagem nil nao quebra" do

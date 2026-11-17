@@ -1,4 +1,3 @@
-# cliente da openai: chat completions com saída estruturada e retry
 defmodule VulnCommits.Judge.OpenAI do
   alias VulnCommits.Judge.Prompt
 
@@ -7,12 +6,10 @@ defmodule VulnCommits.Judge.OpenAI do
   @default_backoff_ms 500
   @max_attempts 5
 
-  # preços de referência de 2025, conferir antes de rodar (US$ por milhão de tokens: entrada, saída)
   @prices %{
     "gpt-4.1-mini-2025-04-14" => {0.40, 1.60}
   }
 
-  # julga um commit; opts: seed (obrigatória), model e backoff_ms
   def judge(system, user, opts) do
     case System.get_env("OPENAI_API_KEY") do
       key when key in [nil, ""] ->
@@ -28,7 +25,6 @@ defmodule VulnCommits.Judge.OpenAI do
     end
   end
 
-  # corpo do pedido: temperature 0 e seed fixa para a execução ser repetível
   defp payload(system, user, opts) do
     %{
       model: Keyword.get(opts, :model, default_model()),
@@ -45,7 +41,6 @@ defmodule VulnCommits.Judge.OpenAI do
     }
   end
 
-  # tenta de novo só em 429, 5xx e erro de transporte, com espera 2^(n-1) * backoff_ms
   defp attempt(fun, n, backoff_ms) do
     case fun.() do
       {:retry, _reason} when n < @max_attempts ->
@@ -60,9 +55,7 @@ defmodule VulnCommits.Judge.OpenAI do
     end
   end
 
-  # uma chamada http; o retry do próprio Req fica desligado (quem tenta de novo é o attempt)
   defp post(key, payload) do
-    # timeout de 60s por chamada; o app env vem depois e pode sobrescrever nos testes
     options =
       [json: payload, auth: {:bearer, key}, retry: false, receive_timeout: 60_000] ++
         Application.get_env(:vuln_commits, :openai_req_options, [])
@@ -82,14 +75,12 @@ defmodule VulnCommits.Judge.OpenAI do
     end
   end
 
-  # pega o conteúdo da primeira escolha e o uso de tokens da resposta
   defp read_judgment(%{"choices" => [%{"message" => %{"content" => content}} | _]} = body) do
     judgment(content, Map.get(body, "usage", %{}))
   end
 
   defp read_judgment(body), do: {:error, {:bad_json, body}}
 
-  # o conteúdo tem que ser json com um label válido; senão é bad_json, sem retry
   defp judgment(content, usage) do
     with {:ok, %{"label" => label} = raw} <- Jason.decode(content),
          {:ok, label} <- parse_label(label) do
@@ -110,7 +101,6 @@ defmodule VulnCommits.Judge.OpenAI do
   defp parse_label("NEUTRAL"), do: {:ok, :neutral}
   defp parse_label(_), do: :error
 
-  # custo estimado em US$ para n chamadas com a média de tokens dada; nil se o modelo não tem preço
   def estimate_cost(
         n_calls,
         avg_input_tokens \\ 4000,
@@ -126,7 +116,6 @@ defmodule VulnCommits.Judge.OpenAI do
     end
   end
 
-  # modelo usado quando não se passa um: OPENAI_MODEL ou o snapshot padrão
   def model, do: default_model()
 
   defp default_model, do: System.get_env("OPENAI_MODEL", @default_model)

@@ -1,4 +1,3 @@
-# dataset do figshare: uma linha por (commit, arquivo), a gente junta por hash.
 defmodule VulnCommits.Dataset do
   alias VulnCommits.{Commit, CSV, Metrics}
 
@@ -10,7 +9,6 @@ defmodule VulnCommits.Dataset do
     |> Enum.sort_by(&{&1.date, &1.hash})
   end
 
-  # todas as linhas do grupo são do mesmo commit, então a primeira dá os campos fixos
   defp build_commit([first | _] = rows) do
     files = rows |> Enum.map(&relative_path/1) |> Enum.sort()
     date = parse_date(first["TIMESTAMP"])
@@ -28,12 +26,10 @@ defmodule VulnCommits.Dataset do
     }
   end
 
-  # tira a pasta do repo do começo do caminho
   defp relative_path(%{"REPO" => repo, "FILE_PATH" => path}) do
     String.replace_prefix(path, repo <> "/", "")
   end
 
-  # timestamp vem como 2019-11-27T23-12-17, só a data interessa
   defp parse_date(timestamp) do
     timestamp |> String.slice(0, 10) |> Date.from_iso8601!()
   end
@@ -53,7 +49,6 @@ defmodule VulnCommits.Dataset do
     }
   end
 
-  # arquivo de repos diferentes com o mesmo caminho conta separado
   defp count_files(commits) do
     commits
     |> Enum.flat_map(fn c -> Enum.map(c.files, &{c.repo, &1}) end)

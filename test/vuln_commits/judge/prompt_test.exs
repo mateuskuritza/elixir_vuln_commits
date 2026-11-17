@@ -22,7 +22,6 @@ defmodule VulnCommits.Judge.PromptTest do
   end
 
   test "truncate nao corta no meio de caractere multibyte" do
-    # cada é ocupa 2 bytes; 3 bytes cabem so 1 caractere inteiro
     assert Prompt.truncate("ééééé", 3) == "é" <> marker(3)
   end
 

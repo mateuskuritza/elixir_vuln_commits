@@ -1,4 +1,3 @@
-# orquestração do estágio 2: escolhe os candidatos, roda o juiz e junta os votos
 defmodule VulnCommits.Judge do
   alias VulnCommits.{Commit, Vote}
   alias VulnCommits.Judge.{OpenAI, Prompt, Store}
@@ -7,7 +6,6 @@ defmodule VulnCommits.Judge do
   @max_concurrency 4
   @progress_every 50
 
-  # candidatos: keyword_hit, sem bot, do periodo e (se dado) dentro do intervalo de anos
   def candidates(commits, period, opts) do
     years = Keyword.get(opts, :years)
 
@@ -19,7 +17,6 @@ defmodule VulnCommits.Judge do
   defp in_years?(_year, nil), do: true
   defp in_years?(year, range), do: year in range
 
-  # pares {commit, run} que ainda não têm registro bem sucedido
   def pending(candidates, done_set, model, version) do
     for c <- candidates,
         run <- @runs,
@@ -27,8 +24,6 @@ defmodule VulnCommits.Judge do
         do: {c, run}
   end
 
-  # roda o juiz em paralelo e grava cada resultado no jsonl a partir deste processo.
-  # opts: dirs (%{repo => dir}), path, model, version e judge_fun (injetável nos testes)
   def run(pairs, opts) do
     model = Keyword.get_lazy(opts, :model, &OpenAI.model/0)
     version = Keyword.get_lazy(opts, :version, &Prompt.version/0)
@@ -57,14 +52,12 @@ defmodule VulnCommits.Judge do
     :ok
   end
 
-  # exceção dentro do juiz (ex.: git diff que falha) vira erro, sem derrubar o run
   defp safe_judge(commit, dir, run, judge_fun) do
     judge_fun.(commit, dir, run)
   rescue
     e -> {:error, {:exception, Exception.message(e)}}
   end
 
-  # juiz padrão: monta o prompt do estágio 2 e chama a openai com a seed do run
   defp default_judge(model, version) do
     system = Prompt.system(version)
 
@@ -75,7 +68,6 @@ defmodule VulnCommits.Judge do
     end
   end
 
-  # uma linha do jsonl; erro do juiz vira ERROR e não derruba a execução
   defp to_record({:ok, judgment}, commit, run, model, version) do
     base(commit, run, model, version)
     |> Map.merge(%{
@@ -106,14 +98,12 @@ defmodule VulnCommits.Judge do
   defp label_name(:vulnerable), do: "VULNERABLE"
   defp label_name(:neutral), do: "NEUTRAL"
 
-  # candidatos com menos de 3 votos válidos; não candidatos não entram (a lista vem de candidates/3)
   def unjudged(candidates, labels) do
     Enum.count(candidates, fn c ->
       length(Map.fetch!(labels, c.hash).votes) < length(@runs)
     end)
   end
 
-  # rótulo final de cada commit: não candidato é neutral; candidato usa a maioria dos registros
   def labels(commits, records, model, version) do
     by_hash = Store.by_commit(records, model, version)
 

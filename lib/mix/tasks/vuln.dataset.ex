@@ -18,7 +18,6 @@ defmodule Mix.Tasks.Vuln.Dataset do
     print_per_year(Dataset.per_year(commits))
   end
 
-  # só baixa se o arquivo ainda não existe
   defp download_if_missing do
     if File.exists?(@path) do
       Mix.shell().info("usando #{@path}")

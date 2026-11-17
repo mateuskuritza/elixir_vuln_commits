@@ -1,15 +1,12 @@
-# acesso ao git por linha de comando
 defmodule VulnCommits.Git do
   alias VulnCommits.Text
 
-  # separadores do formato do log: 0x1f entre campos, 0x1e entre commits
   @format "%H%x1f%cI%x1f%an%x1f%ae%x1f%P%x1f%B%x1e"
 
   def clone_url(owner_repo), do: "https://github.com/#{owner_repo}.git"
 
   def clone(owner_repo, dir), do: clone_from(clone_url(owner_repo), dir)
 
-  # clone sem checkout (só o histórico) e depois traz branches e tags
   defp clone_from(url, dir) do
     with {_, 0} <-
            System.cmd("git", ["clone", "--no-checkout", "-q", url, dir], stderr_to_stdout: true),
@@ -32,8 +29,6 @@ defmodule VulnCommits.Git do
     end
   end
 
-  # atualiza um clone que já existe: traz o que mudou e anda a branch local
-  # (o clone é sem checkout, então o HEAD pode acompanhar o origin sem problema)
   def update(dir) do
     case System.cmd("git", ["fetch", "-q", "--all", "--tags"], cd: dir, stderr_to_stdout: true) do
       {_, 0} ->
@@ -54,7 +49,6 @@ defmodule VulnCommits.Git do
 
   def head(dir, ref), do: dir |> git!(["rev-parse", ref]) |> String.trim()
 
-  # sai com código diferente de 0 quando o objeto não existe, então não usa git!
   def object_exists?(dir, hash) do
     {_, status} =
       System.cmd("git", ["cat-file", "-e", hash <> "^{commit}"], cd: dir, stderr_to_stdout: true)
@@ -62,9 +56,6 @@ defmodule VulnCommits.Git do
     status == 0
   end
 
-  # o git só corta o fim (--until, com folga de um dia) e a regra de verdade é aqui,
-  # pela data do commit (a do próprio fuso dele). sem --since de propósito: em
-  # histórico reescrito, com datas fora de ordem, o git para de andar cedo demais.
   def log(dir, ref, opts) do
     since = Keyword.fetch!(opts, :since)
     until = Keyword.fetch!(opts, :until)
@@ -87,7 +78,6 @@ defmodule VulnCommits.Git do
     Date.compare(date, since) != :lt and Date.compare(date, until) != :gt
   end
 
-  # função pura: texto do git log -> lista de mapas
   def parse_log(binary) do
     binary
     |> Text.scrub()
@@ -117,7 +107,6 @@ defmodule VulnCommits.Git do
     |> Enum.sort()
   end
 
-  # paths vazio devolve o diff inteiro
   def diff(dir, hash, paths) do
     args =
       ["show", "--format=", "--no-color", hash] ++ if(paths == [], do: [], else: ["--" | paths])
@@ -125,7 +114,6 @@ defmodule VulnCommits.Git do
     dir |> git!(args) |> Text.scrub()
   end
 
-  # data do commit que criou o arquivo, a partir do HEAD (a branch padrão do clone)
   def first_added(dir, path) do
     case dir
          |> git!(["log", "--diff-filter=A", "--format=%cI", "-1", "HEAD", "--", path])

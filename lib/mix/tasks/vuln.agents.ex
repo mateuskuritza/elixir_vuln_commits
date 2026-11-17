@@ -10,8 +10,6 @@ defmodule Mix.Tasks.Vuln.Agents do
   @repos "data/repos.csv"
   @judgments "data/judgments.jsonl"
 
-  # mix vuln.agents export --period original --years 2012-2016 --run 1 --out lotes/run1 [--batch-size 20]
-  # mix vuln.agents import --run 1 --out lotes/run1
   @impl Mix.Task
   def run(["export" | args]) do
     opts = parse(args)
@@ -60,7 +58,6 @@ defmodule Mix.Tasks.Vuln.Agents do
         File.rename!(answer, answer <> ".imported")
         Mix.shell().info("importado #{answer} (#{length(judgments)})")
       else
-        # lote já importado antes: nada a fazer
         true -> :ok
         false -> Mix.shell().info("sem resposta ainda: #{answer}")
         {:error, why} -> Mix.shell().error("resposta inválida em #{answer}: #{inspect(why)}")

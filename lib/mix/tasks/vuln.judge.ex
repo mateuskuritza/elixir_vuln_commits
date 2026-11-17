@@ -55,7 +55,6 @@ defmodule Mix.Tasks.Vuln.Judge do
     end
   end
 
-  # lê as opções da linha de comando; periodo é obrigatório
   def parse_args(args) do
     {parsed, _rest, _invalid} =
       OptionParser.parse(args,
@@ -86,7 +85,6 @@ defmodule Mix.Tasks.Vuln.Judge do
     end
   end
 
-  # dry-run nunca chama a api; acima de 200 chamadas só com --yes
   def should_run?(calls, opts) do
     cond do
       opts.dry_run -> false
@@ -95,7 +93,6 @@ defmodule Mix.Tasks.Vuln.Judge do
     end
   end
 
-  # chave ausente ou vazia impede qualquer chamada; a tarefa para antes de gravar erros no jsonl
   def api_key_ok?(key), do: key not in [nil, ""]
 
   defp years_text(nil), do: "todos"

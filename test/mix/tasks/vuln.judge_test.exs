@@ -1,4 +1,3 @@
-# testes das funcoes puras da tarefa mix vuln.judge (sem rodar a tarefa)
 defmodule Mix.Tasks.Vuln.JudgeTest do
   use ExUnit.Case, async: true
 

@@ -1,4 +1,3 @@
-# nome do repositório no dataset -> dono/repositório no github
 %{
   "absinthe" => "absinthe-graphql/absinthe",
   "phoenix" => "phoenixframework/phoenix",

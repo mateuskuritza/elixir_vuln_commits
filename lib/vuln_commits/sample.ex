@@ -1,4 +1,3 @@
-# amostra manual de 80 commits: sorteio estratificado, planilha para rotular e concordância
 defmodule VulnCommits.Sample do
   alias VulnCommits.{CSV, Metrics}
   alias VulnCommits.Judge.Prompt
@@ -7,8 +6,6 @@ defmodule VulnCommits.Sample do
   @excerpt_bytes 3000
   @default_seed {20_261_021, 1, 2}
 
-  # sorteio estratificado por {repo, ano}. a alocação é proporcional, com o método dos maiores restos.
-  # o seed é colocado uma vez no início, assim o resultado não depende da ordem da entrada.
   def pick(candidates, opts \\ []) do
     n = Keyword.get(opts, :n, 80)
     :rand.seed(:exsss, Keyword.get(opts, :seed, @default_seed))
@@ -31,8 +28,6 @@ defmodule VulnCommits.Sample do
     |> sort()
   end
 
-  # cota de cada estrato (índice => quantidade). a parte inteira vem primeiro;
-  # o que sobra vai para os estratos de maior resto, empate pela ordem do estrato.
   defp allocate(strata, n) do
     total = strata |> Enum.map(fn {_key, commits} -> length(commits) end) |> Enum.sum()
 
@@ -58,12 +53,10 @@ defmodule VulnCommits.Sample do
     end)
   end
 
-  # ordem fixa para a planilha e para os testes: repo, data e hash
   defp sort(commits) do
     Enum.sort_by(commits, &{&1.repo, Date.to_iso8601(&1.date), &1.hash})
   end
 
-  # escreve a planilha com o trecho do diff; label, cia e notes ficam vazios para o autor
   def export(commits, repo_rows, path) do
     dirs = Map.new(repo_rows, &{&1.name, &1.dir})
     owners = Map.new(repo_rows, &{&1.name, &1.owner_repo})
@@ -91,8 +84,6 @@ defmodule VulnCommits.Sample do
     commit |> Prompt.diff_for(dir) |> Prompt.truncate(@excerpt_bytes)
   end
 
-  # lê a planilha rotulada. label é obrigatório (sem distinção de caixa); cia é opcional.
-  # se alguma linha não tem label válido, o erro lista todos os hashes dessas linhas.
   def import(path) do
     rows = CSV.read(path)
 
@@ -121,7 +112,6 @@ defmodule VulnCommits.Sample do
   defp blank_to_nil(nil), do: nil
   defp blank_to_nil(text), do: if(String.trim(text) == "", do: nil, else: text)
 
-  # concordância entre o rótulo manual e o final do modelo. undecided conta como neutral.
   def agreement(manual, model_labels) do
     pairs = Enum.map(manual, &{&1.label, model_final(model_labels, &1.hash)})
 

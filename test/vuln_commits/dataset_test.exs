@@ -4,10 +4,6 @@ defmodule VulnCommits.DatasetTest do
 
   @small "test/fixtures/dataset_small.csv"
 
-  # totais da fixture (30 linhas do csv real):
-  # 25 commits, 2 vulneraveis (2d68e9c e 465c978, 2 arquivos cada, mesmo repo),
-  # 23 pares (repo, arquivo) distintos, 4 deles em commits vulneraveis
-
   test "agrega linhas por hash e preenche rotulo humano" do
     commits = Dataset.load(@small)
     c = Enum.find(commits, &(&1.hash == "80f3194414c86754377fa74e080448cf857d4025"))

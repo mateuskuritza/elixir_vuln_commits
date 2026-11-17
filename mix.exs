@@ -12,23 +12,19 @@ defmodule VulnCommits.MixProject do
     ]
   end
 
-  # em teste compila também test/support (repositório git de mentira)
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       extra_applications: [:logger]
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:req, "~> 0.7.5"},
       {:nimble_csv, "~> 1.3"},
-      # Req.Test (stub do github nos testes) precisa do plug
       {:plug, "~> 1.0", only: :test}
     ]
   end

@@ -1,4 +1,3 @@
-# testes da orquestracao: candidatos, pendentes, execucao com juiz falso e rotulos
 defmodule VulnCommits.JudgeTest do
   use ExUnit.Case, async: true
   import ExUnit.CaptureIO
@@ -241,7 +240,6 @@ defmodule VulnCommits.JudgeTest do
         Judge.candidates(commits, :original, years: nil) ++
           Judge.candidates(commits, :extended, years: nil)
 
-      # b (2 votos), c (0 votos) e e (1 voto) ficam de fora dos finais
       assert Judge.unjudged(candidates, labels) == 3
     end
   end

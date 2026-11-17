@@ -1,4 +1,3 @@
-# ferramenta 1: resolve os repositórios do artigo (clone, github) e decide quais seguem ativos
 defmodule VulnCommits.Repos do
   alias VulnCommits.{Bots, Commit, CSV, Git, GitHub}
 
@@ -6,7 +5,6 @@ defmodule VulnCommits.Repos do
               hashes_expected hashes_found elixir_commits_2025 elixir_commits_2026
               last_elixir_commit active collected_at)a
 
-  # as listas já vêm filtradas (sem bot, com arquivo elixir)
   def active?(commits_2025, commits_2026) do
     length(commits_2025) > 1 or length(commits_2026) >= 1
   end
@@ -68,7 +66,6 @@ defmodule VulnCommits.Repos do
     }
   end
 
-  # se a api falhar, a branch padrão vem do próprio clone
   defp repo_info(owner_repo, dir, info_fun) do
     case info_fun.(owner_repo) do
       {:ok, info} ->
@@ -80,7 +77,6 @@ defmodule VulnCommits.Repos do
     end
   end
 
-  # clone sem checkout só tem a branch no origin depois de atualizar; no repo de teste é local
   defp branch_ref(dir, branch) do
     remote = "origin/" <> branch
     if Git.object_exists?(dir, remote), do: remote, else: branch
@@ -92,7 +88,6 @@ defmodule VulnCommits.Repos do
     IO.puts(:stderr, "aviso: #{name} sem #{length(missing)} hash(es): #{Enum.join(missing, " ")}")
   end
 
-  # clone completo; se a pasta já existe só atualiza
   defp clone_or_update(owner_repo, dir) do
     result = if File.dir?(dir), do: Git.update(dir), else: Git.clone(owner_repo, dir)
 
@@ -102,7 +97,6 @@ defmodule VulnCommits.Repos do
     end
   end
 
-  # commit conta se não é merge, não é bot e mexe em arquivo elixir
   defp elixir_commits(dir, ref, year) do
     range = [since: Date.new!(year, 1, 1), until: Date.new!(year, 12, 31), no_merges: true]
 

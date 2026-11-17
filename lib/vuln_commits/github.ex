@@ -1,4 +1,3 @@
-# consulta à api do github (só o que a ferramenta precisa de cada repositório)
 defmodule VulnCommits.GitHub do
   @api "https://api.github.com/repos/"
 
@@ -30,7 +29,6 @@ defmodule VulnCommits.GitHub do
       end
   end
 
-  # variável de ambiente primeiro, depois o gh; sem nenhum dos dois vai sem token
   defp token do
     case System.get_env("GITHUB_TOKEN") do
       nil -> gh_token()

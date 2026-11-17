@@ -1,15 +1,11 @@
-# julgamento por agentes: exporta os prompts em lotes e importa as respostas para o jsonl
 defmodule VulnCommits.Judge.Batch do
   alias VulnCommits.Judge.{Prompt, Store}
 
   @labels %{"VULNERABLE" => "VULNERABLE", "NEUTRAL" => "NEUTRAL"}
   @cias ~w(confidentiality integrity availability none)
 
-  # modelo registrado nos julgamentos feitos por agentes (pode trocar com JUDGE_MODEL)
   def model, do: System.get_env("JUDGE_MODEL", "claude-opus-5-5")
 
-  # um arquivo por lote: instruções, prompt de sistema e um bloco por commit.
-  # diff_fun recebe o commit e devolve o diff (injetável nos testes)
   def export(commits, out_dir, opts) do
     size = Keyword.get(opts, :batch_size, 20)
     version = Keyword.fetch!(opts, :version)
@@ -49,7 +45,6 @@ defmodule VulnCommits.Judge.Batch do
     """
   end
 
-  # lê as linhas json de um agente e confere contra os hashes esperados do lote
   def parse(text, expected) do
     parsed =
       text
@@ -68,7 +63,6 @@ defmodule VulnCommits.Judge.Batch do
     end
   end
 
-  # uma linha só vale se tem hash, label e cia válidos
   defp decode(line) do
     with {:ok, %{"hash" => h, "label" => l, "cia" => c} = j} when is_binary(h) <-
            Jason.decode(line),
@@ -80,7 +74,6 @@ defmodule VulnCommits.Judge.Batch do
     end
   end
 
-  # grava os julgamentos de um lote no jsonl, no mesmo formato dos registros da openai
   def store(judgments, commits_by_hash, path, opts) do
     run = Keyword.fetch!(opts, :run)
     model = Keyword.fetch!(opts, :model)

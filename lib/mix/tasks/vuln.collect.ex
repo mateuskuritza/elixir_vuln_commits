@@ -41,7 +41,6 @@ defmodule Mix.Tasks.Vuln.Collect do
     |> Enum.each(fn {repo, group} -> Mix.shell().info("  #{repo}: #{summary(group)}") end)
   end
 
-  # candidato = palavra-chave e não bot
   defp summary(commits) do
     candidates = Enum.count(commits, &(&1.keyword_hit and not &1.bot))
     bots = Enum.count(commits, & &1.bot)

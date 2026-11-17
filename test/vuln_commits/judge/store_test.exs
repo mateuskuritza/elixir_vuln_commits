@@ -1,4 +1,3 @@
-# testes do armazenamento jsonl com um arquivo temporario por teste
 defmodule VulnCommits.Judge.StoreTest do
   use ExUnit.Case, async: true
 
@@ -15,7 +14,6 @@ defmodule VulnCommits.Judge.StoreTest do
     %{path: path}
   end
 
-  # registro no formato do estagio 2, com os campos que importam para o store
   defp record(hash, run, label, opts \\ []) do
     %{
       hash: hash,

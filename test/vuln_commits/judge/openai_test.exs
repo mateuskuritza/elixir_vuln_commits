@@ -1,4 +1,3 @@
-# testes do cliente openai com o Req.Test no lugar da rede
 defmodule VulnCommits.Judge.OpenAITest do
   use ExUnit.Case, async: false
 
@@ -13,7 +12,6 @@ defmodule VulnCommits.Judge.OpenAITest do
     :ok
   end
 
-  # resposta no formato do chat completions com o conteúdo dado
   defp completion(content) do
     %{
       "choices" => [%{"message" => %{"role" => "assistant", "content" => content}}],

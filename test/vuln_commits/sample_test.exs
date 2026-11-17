@@ -1,4 +1,3 @@
-# testes da amostra manual: sorteio estratificado, export, import e concordância
 defmodule VulnCommits.SampleTest do
   use ExUnit.Case, async: true
 
@@ -50,7 +49,6 @@ defmodule VulnCommits.SampleTest do
     end
 
     test "alocação proporcional por estrato" do
-      # alfa tem 30 commits, beta tem 10: com n = 8 dão 6 e 2
       pop =
         Enum.map(1..30, &commit("alfa", 2021, &1)) ++ Enum.map(1..10, &commit("beta", 2021, &1))
 
@@ -60,7 +58,6 @@ defmodule VulnCommits.SampleTest do
     end
 
     test "resto do arredondamento vai para os maiores restos, empate pela ordem do estrato" do
-      # três estratos de 1 commit e n = 2: cada um tem resto 2/3, ficam alfa e beta
       pop = [commit("alfa", 2021, 1), commit("beta", 2021, 1), commit("gama", 2021, 1)]
       picked = Sample.pick(pop, n: 2, seed: {1, 2, 3})
       assert Enum.map(picked, & &1.repo) == ["alfa", "beta"]

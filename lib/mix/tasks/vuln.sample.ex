@@ -1,4 +1,3 @@
-# amostra manual: export gera a planilha de 80 commits; import lê o rótulo do autor e compara com o modelo
 defmodule Mix.Tasks.Vuln.Sample do
   use Mix.Task
 
@@ -50,7 +49,6 @@ defmodule Mix.Tasks.Vuln.Sample do
       manual = Sample.import(@labeled)
       hashes = MapSet.new(manual, & &1.hash)
 
-      # só os commits da amostra entram no cálculo do rótulo do modelo
       sampled =
         @commits
         |> Collect.load()

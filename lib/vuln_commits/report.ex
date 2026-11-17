@@ -1,5 +1,3 @@
-# números do relatório: funções puras sobre listas já carregadas.
-# rótulo do modelo: undecided conta como neutral em tudo.
 defmodule VulnCommits.Report do
   alias VulnCommits.{Metrics, Vote}
 
@@ -28,20 +26,15 @@ defmodule VulnCommits.Report do
   def paper_table3, do: @paper_table3
   def paper_totals, do: @paper_totals
 
-  # --- rótulos ---
-
   defp ours(labels, commit), do: final(Map.fetch!(labels, commit.hash).final)
   defp final(:undecided), do: :neutral
   defp final(label), do: label
 
-  # mapa no mesmo formato do Judge.labels, mas com o rótulo humano do artigo
   defp human_labels(commits) do
     Map.new(commits, &{&1.hash, %{votes: [], final: &1.human_label}})
   end
 
   defp vulnerable(commits, label_fun), do: Enum.filter(commits, &(label_fun.(&1) == :vulnerable))
-
-  # --- tabela de comparação com o artigo ---
 
   def match(original, labels) do
     human = human_labels(original)
@@ -89,7 +82,6 @@ defmodule VulnCommits.Report do
     }
   end
 
-  # arquivos distintos como {repo, caminho}, igual ao Dataset.summary
   defp count_files(commits) do
     commits
     |> Enum.flat_map(fn c -> Enum.map(c.elixir_files, &{c.repo, &1}) end)
@@ -97,13 +89,10 @@ defmodule VulnCommits.Report do
     |> length()
   end
 
-  # % de arquivos distintos que aparecem em commits finais vulneráveis
   def files_pct(commits, labels) do
     vuln = vulnerable(commits, &ours(labels, &1))
     Metrics.proportion(count_files(vuln), count_files(commits))
   end
-
-  # --- proporção por ano ---
 
   def per_year(original, extended, labels) do
     human = human_labels(original)
@@ -139,8 +128,6 @@ defmodule VulnCommits.Report do
     Metrics.proportion(length(vulnerable(commits, &ours(labels, &1))), length(commits))
   end
 
-  # --- concordância com o rótulo humano e entre execuções ---
-
   def agreement(original, labels, extended, opts \\ []) do
     eval_years = Keyword.get(opts, :years_eval, 2017..2020)
     dev_years = Keyword.get(opts, :years_dev, 2012..2016)
@@ -153,7 +140,6 @@ defmodule VulnCommits.Report do
     }
   end
 
-  # pares {rótulo humano, rótulo final do modelo} dos commits do intervalo de anos
   defp scores(original, labels, years) do
     pairs = for c <- original, c.year in years, do: {c.human_label, ours(labels, c)}
     confusion = Metrics.confusion(pairs)
@@ -162,7 +148,6 @@ defmodule VulnCommits.Report do
     |> Map.merge(Metrics.precision_recall_f1(confusion))
   end
 
-  # só commits com 3 votos válidos entram no kappa entre execuções
   defp runs(commits, labels) do
     finals = for c <- commits, do: Map.fetch!(labels, c.hash)
     triples = for %{votes: [_, _, _] = votes} <- finals, do: votes
@@ -171,7 +156,6 @@ defmodule VulnCommits.Report do
     if triples == [] do
       %{n: 0, mean_kappa: nil, min_kappa: nil, unanimous_pct: nil, undecided: undecided}
     else
-      # uma lista por run, alinhadas pelo commit
       per_run = Enum.zip_with(triples, & &1)
       kappa = Metrics.pairwise_kappa(per_run)
 
@@ -186,8 +170,6 @@ defmodule VulnCommits.Report do
     end
   end
 
-  # --- bots e marcadores de IA no período estendido ---
-
   def bots(extended) do
     by_year = Enum.group_by(extended, & &1.year)
 
@@ -197,7 +179,6 @@ defmodule VulnCommits.Report do
     end
   end
 
-  # commits de bots ficam fora, como na proporção por ano
   def ai(extended, labels, repo_markers) do
     by_year = extended |> Enum.reject(& &1.bot) |> Enum.group_by(& &1.year)
 

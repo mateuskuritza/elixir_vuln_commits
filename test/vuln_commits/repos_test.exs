@@ -44,7 +44,6 @@ defmodule VulnCommits.ReposTest do
       assert row.head_at_collection == fx.h
       assert row.hashes_expected == 2
       assert row.hashes_found == 2
-      # E e H; D só toca CLAUDE.md e M é merge
       assert row.elixir_commits_2025 == 2
       assert row.elixir_commits_2026 == 0
       assert row.last_elixir_commit == ~D[2025-05-01]

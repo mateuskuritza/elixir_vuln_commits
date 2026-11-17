@@ -37,7 +37,6 @@ defmodule VulnCommits.MetricsTest do
   end
 
   test "kappa do exemplo classico de Cohen (matriz [[20, 5], [10, 15]])" do
-    # linhas: rater A vulnerable/neutral; colunas: rater B vulnerable/neutral
     pairs =
       duplicate({:vulnerable, :vulnerable}, 20) ++
         duplicate({:vulnerable, :neutral}, 5) ++
@@ -62,7 +61,6 @@ defmodule VulnCommits.MetricsTest do
   end
 
   test "pairwise_kappa devolve media, minimo e os 3 pares (1-2, 1-3, 2-3)" do
-    # run 1 = rater A, run 2 = rater B, run 3 = cópia da run 1
     run1 =
       duplicate(:vulnerable, 20) ++
         duplicate(:vulnerable, 5) ++ duplicate(:neutral, 10) ++ duplicate(:neutral, 15)

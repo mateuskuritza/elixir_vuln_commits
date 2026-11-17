@@ -1,6 +1,4 @@
-# armazenamento dos julgamentos em jsonl: uma linha json por registro
 defmodule VulnCommits.Judge.Store do
-  # acrescenta um registro no fim do arquivo, criando a pasta se precisar
   def append(path, record) do
     File.mkdir_p!(Path.dirname(path))
     line = Jason.encode!(record) <> "\n"
@@ -8,7 +6,6 @@ defmodule VulnCommits.Judge.Store do
     :ok
   end
 
-  # le o arquivo inteiro; sem arquivo, nada julgado ainda
   def load(path) do
     if File.exists?(path) do
       path
@@ -21,15 +18,12 @@ defmodule VulnCommits.Judge.Store do
     end
   end
 
-  # chaves dos julgamentos que deram certo (erro conta como pendente)
   def done(records) do
     for %{label: label} = r <- records, label != "ERROR", into: MapSet.new() do
       {r.hash, r.run, r.model, r.prompt_version}
     end
   end
 
-  # %{hash => [:vulnerable | :neutral]} ordenado por run.
-  # se {hash, run} aparece duas vezes (rerun), vale o ultimo do arquivo.
   def by_commit(records, model, prompt_version) do
     records
     |> Enum.filter(&(&1.model == model and &1.prompt_version == prompt_version))

@@ -1,4 +1,3 @@
-# ferramenta 2: índice de commits dos dois períodos (original do artigo e estendido)
 defmodule VulnCommits.Collect do
   alias VulnCommits.{AiMarkers, Bots, Commit, CSV, Git, Keywords}
 
@@ -7,7 +6,6 @@ defmodule VulnCommits.Collect do
 
   @marker_columns ~w(repo file first_added)
 
-  # pipeline: cada função recebe o commit e devolve o commit com mais um campo preenchido
   def enrich(%Commit{} = commit) do
     steps = [&with_keywords/1, &with_bot/1, &with_ai/1, &with_year/1]
     Enum.reduce(steps, commit, fn step, acc -> step.(acc) end)
@@ -24,8 +22,6 @@ defmodule VulnCommits.Collect do
 
   defp with_year(commit), do: %{commit | year: Commit.year_of(commit)}
 
-  # commits do csv do artigo cujo repo está entre os ativos.
-  # files, data, ano e rótulo ficam como o csv deu; a mensagem e o autor vêm do git.
   def original(dataset_commits, repo_rows) do
     dirs = Map.new(repo_rows, &{&1.name, &1.dir})
 
@@ -35,7 +31,6 @@ defmodule VulnCommits.Collect do
     |> Enum.map(&enrich/1)
   end
 
-  # se o git não lê o hash, fica a mensagem do csv e sem autor
   defp from_git(commit, dir) do
     if Git.object_exists?(dir, commit.hash) do
       info = Git.show_message(dir, commit.hash)
@@ -52,7 +47,6 @@ defmodule VulnCommits.Collect do
     end
   end
 
-  # histórico da branch padrão no intervalo, só commits sem merge que mexem em arquivo elixir
   def extended(repo_rows, opts) do
     Enum.flat_map(repo_rows, &extended_repo(&1, opts))
   end
@@ -87,7 +81,6 @@ defmodule VulnCommits.Collect do
     }
   end
 
-  # quantos merges ficaram de fora do índice (só para imprimir)
   def merges_excluded(row, opts) do
     ref = branch_ref(row.dir, row.default_branch)
     range = [since: Keyword.fetch!(opts, :since), until: Keyword.fetch!(opts, :until)]
@@ -97,13 +90,11 @@ defmodule VulnCommits.Collect do
     length(all) - length(plain)
   end
 
-  # clone sem checkout só tem a branch atualizada no origin
   defp branch_ref(dir, branch) do
     remote = "origin/" <> branch
     if Git.object_exists?(dir, remote), do: remote, else: branch
   end
 
-  # arquivos de instrução de IA que existem no histórico de cada repo, com a data de criação
   def repo_markers(repo_rows) do
     for row <- repo_rows,
         file <- AiMarkers.repo_files(),
@@ -170,7 +161,6 @@ defmodule VulnCommits.Collect do
   defp blank_to_nil(""), do: nil
   defp blank_to_nil(text), do: text
 
-  # só vêm daqui valores conhecidos (original/extended, vulnerable/neutral)
   defp atom(""), do: nil
   defp atom(text), do: String.to_atom(text)
 

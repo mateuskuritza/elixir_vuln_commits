@@ -1,4 +1,3 @@
-# testes do relatório: funções puras sobre listas já carregadas
 defmodule VulnCommits.ReportTest do
   use ExUnit.Case, async: true
 
@@ -95,7 +94,6 @@ defmodule VulnCommits.ReportTest do
         commit("b", human: :neutral, files: ["y.ex", "z.ex", "w.ex"])
       ]
 
-      # vulneráveis: x, y (2). todos: x, y, z, w (4)
       assert Report.files_pct(commits, labels_from(commits)) == 50.0
     end
 

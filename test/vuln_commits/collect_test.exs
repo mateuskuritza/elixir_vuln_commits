@@ -90,7 +90,6 @@ defmodule VulnCommits.CollectTest do
         %Commit{repo: "outro", hash: fx.a, date: ~D[2020-05-01], message: "x", period: :original}
       ]
 
-      # repo "outro" não está entre os ativos e some; a ordem do dataset é mantida
       assert [b, ghost] = Collect.original(dataset, [row])
 
       assert b.message == "Fix crash on nil"
@@ -103,7 +102,6 @@ defmodule VulnCommits.CollectTest do
       assert b.keyword_hit == true
       assert b.year == 2021
 
-      # hash que o git não lê: cai no texto do csv, sem autor
       assert ghost.message == "Fix crash Co-Authored-By: Claude"
       assert ghost.author_name == nil
       assert ghost.bot == false

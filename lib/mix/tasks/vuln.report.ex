@@ -1,4 +1,3 @@
-# relatório final: tabelas em latex e csv, mais um summary.json com todos os números
 defmodule Mix.Tasks.Vuln.Report do
   use Mix.Task
 
@@ -95,14 +94,11 @@ defmodule Mix.Tasks.Vuln.Report do
     end
   end
 
-  # concordância com a amostra manual, só se a planilha rotulada existir
   defp manual_agreement(labels) do
     if File.exists?(@labeled) do
       @labeled |> Sample.import() |> Sample.agreement(labels)
     end
   end
-
-  # --- tabelas ---
 
   defp write_all(summary) do
     File.mkdir_p!(@out)
@@ -213,7 +209,6 @@ defmodule Mix.Tasks.Vuln.Report do
     ]
   end
 
-  # csv guarda o número cru; nil vira célula vazia
   defp csv_row(cells), do: Enum.map(cells, &csv_cell/1)
   defp csv_cell(nil), do: ""
   defp csv_cell(value), do: to_string(value)
