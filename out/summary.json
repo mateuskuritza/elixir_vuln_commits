@@ -59,8 +59,6 @@
     },
     "kappa": 0.6902654867256636
   },
-  "model": "claude-opus-5-5",
-  "prompt_version": "v2",
   "agreement": {
     "all": {
       "precision": 0.6372549019607843,
@@ -71,9 +69,9 @@
         "false_neg": 24,
         "true_neg": 4057
       },
-      "kappa": 0.6732018693719366,
       "recall": 0.7303370786516854,
-      "f1": 0.6806282722513088
+      "f1": 0.6806282722513088,
+      "kappa": 0.6732018693719366
     },
     "eval": {
       "precision": 0.6222222222222222,
@@ -84,9 +82,9 @@
         "false_neg": 16,
         "true_neg": 1892
       },
-      "kappa": 0.6205690669209981,
       "recall": 0.6363636363636364,
-      "f1": 0.6292134831460675
+      "f1": 0.6292134831460675,
+      "kappa": 0.6205690669209981
     },
     "dev": {
       "precision": 0.6491228070175439,
@@ -97,9 +95,9 @@
         "false_neg": 8,
         "true_neg": 2165
       },
-      "kappa": 0.71915620923852,
       "recall": 0.8222222222222222,
-      "f1": 0.7254901960784313
+      "f1": 0.7254901960784313,
+      "kappa": 0.71915620923852
     },
     "runs": {
       "n": 1142,
@@ -109,6 +107,7 @@
       "unanimous_pct": 97.2
     }
   },
+  "model": "claude-opus-5-5",
   "per_year": [
     {
       "year": 2012,
@@ -209,57 +208,6 @@
       "ours": 2.37
     }
   ],
-  "ai": {
-    "per_year": [
-      {
-        "year": 2021,
-        "with_marker": 11,
-        "vulnerable_with": 0,
-        "without_marker": 2058,
-        "vulnerable_without": 21
-      },
-      {
-        "year": 2022,
-        "with_marker": 4,
-        "vulnerable_with": 0,
-        "without_marker": 2394,
-        "vulnerable_without": 41
-      },
-      {
-        "year": 2023,
-        "with_marker": 6,
-        "vulnerable_with": 0,
-        "without_marker": 1983,
-        "vulnerable_without": 28
-      },
-      {
-        "year": 2024,
-        "with_marker": 4,
-        "vulnerable_with": 0,
-        "without_marker": 2087,
-        "vulnerable_without": 45
-      },
-      {
-        "year": 2025,
-        "with_marker": 5,
-        "vulnerable_with": 0,
-        "without_marker": 2062,
-        "vulnerable_without": 49
-      }
-    ],
-    "repo_files": [
-      {
-        "file": "AGENTS.md",
-        "repo": "elixir",
-        "first_added": "2026-06-15"
-      },
-      {
-        "file": "AGENTS.md",
-        "repo": "realtime",
-        "first_added": "2026-10-06"
-      }
-    ]
-  },
   "bots": [
     {
       "total": 2069,
@@ -286,5 +234,57 @@
       "year": 2025,
       "bots": 2
     }
-  ]
+  ],
+  "ai": {
+    "per_year": [
+      {
+        "year": 2021,
+        "with_marker": 0,
+        "vulnerable_with": 0,
+        "without_marker": 2069,
+        "vulnerable_without": 21
+      },
+      {
+        "year": 2022,
+        "with_marker": 0,
+        "vulnerable_with": 0,
+        "without_marker": 2398,
+        "vulnerable_without": 41
+      },
+      {
+        "year": 2023,
+        "with_marker": 0,
+        "vulnerable_with": 0,
+        "without_marker": 1989,
+        "vulnerable_without": 28
+      },
+      {
+        "year": 2024,
+        "with_marker": 0,
+        "vulnerable_with": 0,
+        "without_marker": 2091,
+        "vulnerable_without": 45
+      },
+      {
+        "year": 2025,
+        "with_marker": 0,
+        "vulnerable_with": 0,
+        "without_marker": 2067,
+        "vulnerable_without": 49
+      }
+    ],
+    "repo_files": [
+      {
+        "file": "AGENTS.md",
+        "repo": "elixir",
+        "first_added": "2026-06-15"
+      },
+      {
+        "file": "AGENTS.md",
+        "repo": "realtime",
+        "first_added": "2026-10-06"
+      }
+    ]
+  },
+  "prompt_version": "v2"
 }
