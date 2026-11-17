@@ -17,7 +17,7 @@ set -a; source .env; set +a
 mix deps.get
 ```
 
-Todos os comandos abaixo rodam dentro da pasta `tool/`.
+Todos os comandos abaixo rodam na raiz do projeto Mix (onde está o `mix.exs`).
 
 ## Pipeline
 
