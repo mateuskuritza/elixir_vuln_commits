@@ -120,6 +120,33 @@ defmodule VulnCommits.Git do
     Enum.sort(lines)
   end
 
+  def numstat(dir, hash) do
+    args = ["-c", "core.quotepath=off", "show", "--format=", "--numstat", "-M", "-z", hash]
+    output = git!(dir, args)
+    tokens = String.split(Text.scrub(output), <<0>>)
+    parse_numstat(tokens)
+  end
+
+  def parse_numstat([]), do: []
+  def parse_numstat([""]), do: []
+
+  def parse_numstat([counts, _old_path, new_path | rest])
+      when binary_part(counts, byte_size(counts), -1) == "\t" do
+    [added, deleted, ""] = String.split(counts, "\t")
+    [numstat_entry(added, deleted, new_path) | parse_numstat(rest)]
+  end
+
+  def parse_numstat([record | rest]) do
+    [added, deleted, path] = String.split(String.trim_leading(record, "\n"), "\t", parts: 3)
+    [numstat_entry(added, deleted, path) | parse_numstat(rest)]
+  end
+
+  defp numstat_entry("-", "-", path), do: %{path: path, added: 0, deleted: 0}
+
+  defp numstat_entry(added, deleted, path) do
+    %{path: path, added: String.to_integer(added), deleted: String.to_integer(deleted)}
+  end
+
   def diff(dir, hash, paths) do
     base_args = ["show", "--format=", "--no-color", hash]
 

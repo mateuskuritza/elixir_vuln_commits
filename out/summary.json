@@ -1,103 +1,1162 @@
 {
   "match": [
     {
+      "metric": "commits",
       "paper": 4446,
       "human_active": 4183,
-      "ours": 4183,
-      "metric": "commits"
+      "ours": 4183
     },
     {
+      "metric": "vulneráveis",
       "paper": 90,
       "human_active": 89,
-      "ours": 102,
-      "metric": "vulneráveis"
+      "ours": 102
     },
     {
+      "metric": "proporção (%)",
       "paper": 2.0,
       "human_active": 2.13,
-      "ours": 2.44,
-      "metric": "proporção (%)"
+      "ours": 2.44
     },
     {
+      "metric": "repositórios",
       "paper": 25,
       "human_active": 11,
-      "ours": 11,
-      "metric": "repositórios"
+      "ours": 11
     },
     {
+      "metric": "repositórios com ≥1 vulnerável",
       "paper": 9,
       "human_active": 8,
-      "ours": 10,
-      "metric": "repositórios com ≥1 vulnerável"
+      "ours": 10
     },
     {
+      "metric": "arquivos",
       "paper": 1769,
       "human_active": 1572,
-      "ours": 1572,
-      "metric": "arquivos"
+      "ours": 1572
     },
     {
+      "metric": "arquivos em vulneráveis",
       "paper": 319,
       "human_active": 305,
-      "ours": 169,
-      "metric": "arquivos em vulneráveis"
+      "ours": 169
     },
     {
+      "metric": "arquivos em vulneráveis (%)",
       "paper": 18.03,
       "human_active": 19.4,
-      "ours": 10.75,
-      "metric": "arquivos em vulneráveis (%)"
+      "ours": 10.75
     }
   ],
   "manual": {
     "n": 80,
+    "kappa": 0.6902654867256636,
     "confusion": {
       "true_pos": 10,
       "false_pos": 6,
       "false_neg": 1,
       "true_neg": 63
-    },
-    "kappa": 0.6902654867256636
+    }
   },
+  "volume": {
+    "per_year": [
+      {
+        "added": 89359,
+        "year": 2021,
+        "files": 5125,
+        "commits": 2069,
+        "authors": 311,
+        "files_per_commit": 2.48,
+        "large_pct": 3.14,
+        "median_added": 10.0,
+        "deleted": 36930
+      },
+      {
+        "added": 109607,
+        "year": 2022,
+        "files": 6440,
+        "commits": 2398,
+        "authors": 331,
+        "files_per_commit": 2.69,
+        "large_pct": 3.0,
+        "median_added": 9.0,
+        "deleted": 60606
+      },
+      {
+        "added": 115557,
+        "year": 2023,
+        "files": 6072,
+        "commits": 1989,
+        "authors": 267,
+        "files_per_commit": 3.05,
+        "large_pct": 6.03,
+        "median_added": 10.0,
+        "deleted": 54634
+      },
+      {
+        "added": 193914,
+        "year": 2024,
+        "files": 9098,
+        "commits": 2091,
+        "authors": 255,
+        "files_per_commit": 4.35,
+        "large_pct": 10.04,
+        "median_added": 16.0,
+        "deleted": 107410
+      },
+      {
+        "added": 211223,
+        "year": 2025,
+        "files": 9903,
+        "commits": 2067,
+        "authors": 196,
+        "files_per_commit": 4.79,
+        "large_pct": 10.69,
+        "median_added": 20.0,
+        "deleted": 107248
+      }
+    ],
+    "per_repo": [
+      {
+        "added": 2437,
+        "year": 2021,
+        "repo": "absinthe",
+        "files": 204,
+        "commits": 78,
+        "authors": 27,
+        "files_per_commit": 2.62,
+        "large_pct": 6.41,
+        "median_added": 7.0,
+        "deleted": 850
+      },
+      {
+        "added": 6377,
+        "year": 2022,
+        "repo": "absinthe",
+        "files": 381,
+        "commits": 120,
+        "authors": 19,
+        "files_per_commit": 3.17,
+        "large_pct": 5.0,
+        "median_added": 10.5,
+        "deleted": 1482
+      },
+      {
+        "added": 1338,
+        "year": 2023,
+        "repo": "absinthe",
+        "files": 156,
+        "commits": 87,
+        "authors": 21,
+        "files_per_commit": 1.79,
+        "large_pct": 1.15,
+        "median_added": 6.0,
+        "deleted": 670
+      },
+      {
+        "added": 941,
+        "year": 2024,
+        "repo": "absinthe",
+        "files": 72,
+        "commits": 33,
+        "authors": 15,
+        "files_per_commit": 2.18,
+        "large_pct": 3.03,
+        "median_added": 7.0,
+        "deleted": 223
+      },
+      {
+        "added": 564,
+        "year": 2025,
+        "repo": "absinthe",
+        "files": 47,
+        "commits": 27,
+        "authors": 16,
+        "files_per_commit": 1.74,
+        "large_pct": 0.0,
+        "median_added": 3.0,
+        "deleted": 85
+      },
+      {
+        "added": 23181,
+        "year": 2021,
+        "repo": "analytics",
+        "files": 1310,
+        "commits": 423,
+        "authors": 32,
+        "files_per_commit": 3.1,
+        "large_pct": 5.67,
+        "median_added": 10.0,
+        "deleted": 9871
+      },
+      {
+        "added": 23726,
+        "year": 2022,
+        "repo": "analytics",
+        "files": 1119,
+        "commits": 348,
+        "authors": 27,
+        "files_per_commit": 3.22,
+        "large_pct": 5.17,
+        "median_added": 12.0,
+        "deleted": 9264
+      },
+      {
+        "added": 66347,
+        "year": 2023,
+        "repo": "analytics",
+        "files": 2550,
+        "commits": 424,
+        "authors": 18,
+        "files_per_commit": 6.01,
+        "large_pct": 19.1,
+        "median_added": 34.0,
+        "deleted": 28922
+      },
+      {
+        "added": 124252,
+        "year": 2024,
+        "repo": "analytics",
+        "files": 4593,
+        "commits": 657,
+        "authors": 13,
+        "files_per_commit": 6.99,
+        "large_pct": 19.94,
+        "median_added": 35.0,
+        "deleted": 66826
+      },
+      {
+        "added": 113224,
+        "year": 2025,
+        "repo": "analytics",
+        "files": 4399,
+        "commits": 644,
+        "authors": 11,
+        "files_per_commit": 6.83,
+        "large_pct": 20.81,
+        "median_added": 40.0,
+        "deleted": 53318
+      },
+      {
+        "added": 11745,
+        "year": 2021,
+        "repo": "credo",
+        "files": 518,
+        "commits": 234,
+        "authors": 31,
+        "files_per_commit": 2.21,
+        "large_pct": 0.85,
+        "median_added": 13.0,
+        "deleted": 3804
+      },
+      {
+        "added": 6676,
+        "year": 2022,
+        "repo": "credo",
+        "files": 394,
+        "commits": 165,
+        "authors": 34,
+        "files_per_commit": 2.39,
+        "large_pct": 1.21,
+        "median_added": 10.0,
+        "deleted": 1965
+      },
+      {
+        "added": 3581,
+        "year": 2023,
+        "repo": "credo",
+        "files": 181,
+        "commits": 92,
+        "authors": 21,
+        "files_per_commit": 1.97,
+        "large_pct": 1.09,
+        "median_added": 11.0,
+        "deleted": 1435
+      },
+      {
+        "added": 5058,
+        "year": 2024,
+        "repo": "credo",
+        "files": 599,
+        "commits": 150,
+        "authors": 21,
+        "files_per_commit": 3.99,
+        "large_pct": 8.0,
+        "median_added": 10.0,
+        "deleted": 3166
+      },
+      {
+        "added": 9341,
+        "year": 2025,
+        "repo": "credo",
+        "files": 556,
+        "commits": 126,
+        "authors": 12,
+        "files_per_commit": 4.41,
+        "large_pct": 3.97,
+        "median_added": 14.0,
+        "deleted": 8112
+      },
+      {
+        "added": 32676,
+        "year": 2021,
+        "repo": "elixir",
+        "files": 1803,
+        "commits": 873,
+        "authors": 139,
+        "files_per_commit": 2.07,
+        "large_pct": 1.49,
+        "median_added": 10.0,
+        "deleted": 15617
+      },
+      {
+        "added": 27505,
+        "year": 2022,
+        "repo": "elixir",
+        "files": 1696,
+        "commits": 710,
+        "authors": 150,
+        "files_per_commit": 2.39,
+        "large_pct": 1.97,
+        "median_added": 11.5,
+        "deleted": 14569
+      },
+      {
+        "added": 24864,
+        "year": 2023,
+        "repo": "elixir",
+        "files": 1539,
+        "commits": 753,
+        "authors": 113,
+        "files_per_commit": 2.04,
+        "large_pct": 1.86,
+        "median_added": 10.0,
+        "deleted": 15277
+      },
+      {
+        "added": 43931,
+        "year": 2024,
+        "repo": "elixir",
+        "files": 2115,
+        "commits": 826,
+        "authors": 138,
+        "files_per_commit": 2.56,
+        "large_pct": 2.91,
+        "median_added": 15.0,
+        "deleted": 25296
+      },
+      {
+        "added": 36052,
+        "year": 2025,
+        "repo": "elixir",
+        "files": 1993,
+        "commits": 664,
+        "authors": 96,
+        "files_per_commit": 3.0,
+        "large_pct": 2.41,
+        "median_added": 15.5,
+        "deleted": 16467
+      },
+      {
+        "added": 2,
+        "year": 2021,
+        "repo": "elixir-koans",
+        "files": 2,
+        "commits": 1,
+        "authors": 1,
+        "files_per_commit": 2.0,
+        "large_pct": 0.0,
+        "median_added": 2.0,
+        "deleted": 1
+      },
+      {
+        "added": 49,
+        "year": 2022,
+        "repo": "elixir-koans",
+        "files": 11,
+        "commits": 9,
+        "authors": 1,
+        "files_per_commit": 1.22,
+        "large_pct": 0.0,
+        "median_added": 4.0,
+        "deleted": 28
+      },
+      {
+        "added": 137,
+        "year": 2023,
+        "repo": "elixir-koans",
+        "files": 55,
+        "commits": 9,
+        "authors": 5,
+        "files_per_commit": 6.11,
+        "large_pct": 11.11,
+        "median_added": 2.0,
+        "deleted": 82
+      },
+      {
+        "added": 19,
+        "year": 2024,
+        "repo": "elixir-koans",
+        "files": 4,
+        "commits": 3,
+        "authors": 1,
+        "files_per_commit": 1.33,
+        "large_pct": 0.0,
+        "median_added": 6.0,
+        "deleted": 13
+      },
+      {
+        "added": 1134,
+        "year": 2025,
+        "repo": "elixir-koans",
+        "files": 34,
+        "commits": 16,
+        "authors": 1,
+        "files_per_commit": 2.13,
+        "large_pct": 0.0,
+        "median_added": 27.0,
+        "deleted": 53
+      },
+      {
+        "added": 670,
+        "year": 2021,
+        "repo": "guardian",
+        "files": 44,
+        "commits": 10,
+        "authors": 7,
+        "files_per_commit": 4.4,
+        "large_pct": 10.0,
+        "median_added": 13.5,
+        "deleted": 236
+      },
+      {
+        "added": 109,
+        "year": 2022,
+        "repo": "guardian",
+        "files": 27,
+        "commits": 9,
+        "authors": 9,
+        "files_per_commit": 3.0,
+        "large_pct": 0.0,
+        "median_added": 13.0,
+        "deleted": 52
+      },
+      {
+        "added": 3,
+        "year": 2023,
+        "repo": "guardian",
+        "files": 3,
+        "commits": 2,
+        "authors": 1,
+        "files_per_commit": 1.5,
+        "large_pct": 0.0,
+        "median_added": 1.5,
+        "deleted": 3
+      },
+      {
+        "added": 3,
+        "year": 2024,
+        "repo": "guardian",
+        "files": 3,
+        "commits": 2,
+        "authors": 2,
+        "files_per_commit": 1.5,
+        "large_pct": 0.0,
+        "median_added": 1.5,
+        "deleted": 3
+      },
+      {
+        "added": 212,
+        "year": 2025,
+        "repo": "guardian",
+        "files": 15,
+        "commits": 5,
+        "authors": 5,
+        "files_per_commit": 3.0,
+        "large_pct": 20.0,
+        "median_added": 1.0,
+        "deleted": 120
+      },
+      {
+        "added": 1,
+        "year": 2021,
+        "repo": "httpoison",
+        "files": 1,
+        "commits": 1,
+        "authors": 1,
+        "files_per_commit": 1.0,
+        "large_pct": 0.0,
+        "median_added": 1.0,
+        "deleted": 1
+      },
+      {
+        "added": 422,
+        "year": 2022,
+        "repo": "httpoison",
+        "files": 14,
+        "commits": 9,
+        "authors": 8,
+        "files_per_commit": 1.56,
+        "large_pct": 0.0,
+        "median_added": 3.0,
+        "deleted": 76
+      },
+      {
+        "added": 247,
+        "year": 2023,
+        "repo": "httpoison",
+        "files": 22,
+        "commits": 15,
+        "authors": 8,
+        "files_per_commit": 1.47,
+        "large_pct": 0.0,
+        "median_added": 4.0,
+        "deleted": 92
+      },
+      {
+        "added": 0,
+        "year": 2024,
+        "repo": "httpoison",
+        "files": 0,
+        "commits": 0,
+        "authors": 0,
+        "files_per_commit": 0.0,
+        "large_pct": 0.0,
+        "median_added": 0.0,
+        "deleted": 0
+      },
+      {
+        "added": 129,
+        "year": 2025,
+        "repo": "httpoison",
+        "files": 14,
+        "commits": 9,
+        "authors": 5,
+        "files_per_commit": 1.56,
+        "large_pct": 0.0,
+        "median_added": 3.0,
+        "deleted": 100
+      },
+      {
+        "added": 6453,
+        "year": 2021,
+        "repo": "phoenix",
+        "files": 648,
+        "commits": 255,
+        "authors": 81,
+        "files_per_commit": 2.54,
+        "large_pct": 2.75,
+        "median_added": 4.0,
+        "deleted": 2636
+      },
+      {
+        "added": 15349,
+        "year": 2022,
+        "repo": "phoenix",
+        "files": 982,
+        "commits": 308,
+        "authors": 94,
+        "files_per_commit": 3.19,
+        "large_pct": 4.22,
+        "median_added": 6.0,
+        "deleted": 7852
+      },
+      {
+        "added": 5780,
+        "year": 2023,
+        "repo": "phoenix",
+        "files": 715,
+        "commits": 320,
+        "authors": 88,
+        "files_per_commit": 2.23,
+        "large_pct": 1.88,
+        "median_added": 6.0,
+        "deleted": 3395
+      },
+      {
+        "added": 2822,
+        "year": 2024,
+        "repo": "phoenix",
+        "files": 458,
+        "commits": 155,
+        "authors": 69,
+        "files_per_commit": 2.95,
+        "large_pct": 6.45,
+        "median_added": 4.0,
+        "deleted": 2109
+      },
+      {
+        "added": 13335,
+        "year": 2025,
+        "repo": "phoenix",
+        "files": 837,
+        "commits": 261,
+        "authors": 69,
+        "files_per_commit": 3.21,
+        "large_pct": 5.36,
+        "median_added": 7.0,
+        "deleted": 9157
+      },
+      {
+        "added": 179,
+        "year": 2021,
+        "repo": "quantum-core",
+        "files": 14,
+        "commits": 7,
+        "authors": 6,
+        "files_per_commit": 2.0,
+        "large_pct": 0.0,
+        "median_added": 8.0,
+        "deleted": 66
+      },
+      {
+        "added": 136,
+        "year": 2022,
+        "repo": "quantum-core",
+        "files": 15,
+        "commits": 10,
+        "authors": 3,
+        "files_per_commit": 1.5,
+        "large_pct": 0.0,
+        "median_added": 4.5,
+        "deleted": 72
+      },
+      {
+        "added": 22,
+        "year": 2023,
+        "repo": "quantum-core",
+        "files": 7,
+        "commits": 4,
+        "authors": 3,
+        "files_per_commit": 1.75,
+        "large_pct": 0.0,
+        "median_added": 4.0,
+        "deleted": 17
+      },
+      {
+        "added": 25,
+        "year": 2024,
+        "repo": "quantum-core",
+        "files": 9,
+        "commits": 7,
+        "authors": 4,
+        "files_per_commit": 1.29,
+        "large_pct": 0.0,
+        "median_added": 1.0,
+        "deleted": 11
+      },
+      {
+        "added": 68,
+        "year": 2025,
+        "repo": "quantum-core",
+        "files": 16,
+        "commits": 1,
+        "authors": 1,
+        "files_per_commit": 16.0,
+        "large_pct": 100.0,
+        "median_added": 68.0,
+        "deleted": 211
+      },
+      {
+        "added": 11727,
+        "year": 2021,
+        "repo": "realtime",
+        "files": 531,
+        "commits": 154,
+        "authors": 11,
+        "files_per_commit": 3.45,
+        "large_pct": 8.44,
+        "median_added": 18.5,
+        "deleted": 3726
+      },
+      {
+        "added": 28316,
+        "year": 2022,
+        "repo": "realtime",
+        "files": 1724,
+        "commits": 656,
+        "authors": 9,
+        "files_per_commit": 2.63,
+        "large_pct": 2.9,
+        "median_added": 8.0,
+        "deleted": 24835
+      },
+      {
+        "added": 12935,
+        "year": 2023,
+        "repo": "realtime",
+        "files": 796,
+        "commits": 258,
+        "authors": 9,
+        "files_per_commit": 3.09,
+        "large_pct": 6.2,
+        "median_added": 7.5,
+        "deleted": 4591
+      },
+      {
+        "added": 15579,
+        "year": 2024,
+        "repo": "realtime",
+        "files": 1163,
+        "commits": 216,
+        "authors": 8,
+        "files_per_commit": 5.38,
+        "large_pct": 14.81,
+        "median_added": 18.0,
+        "deleted": 9461
+      },
+      {
+        "added": 36827,
+        "year": 2025,
+        "repo": "realtime",
+        "files": 1965,
+        "commits": 299,
+        "authors": 6,
+        "files_per_commit": 6.57,
+        "large_pct": 16.72,
+        "median_added": 53.0,
+        "deleted": 19471
+      },
+      {
+        "added": 288,
+        "year": 2021,
+        "repo": "rustler",
+        "files": 50,
+        "commits": 33,
+        "authors": 10,
+        "files_per_commit": 1.52,
+        "large_pct": 0.0,
+        "median_added": 3.0,
+        "deleted": 122
+      },
+      {
+        "added": 942,
+        "year": 2022,
+        "repo": "rustler",
+        "files": 77,
+        "commits": 54,
+        "authors": 11,
+        "files_per_commit": 1.43,
+        "large_pct": 0.0,
+        "median_added": 6.0,
+        "deleted": 411
+      },
+      {
+        "added": 303,
+        "year": 2023,
+        "repo": "rustler",
+        "files": 48,
+        "commits": 25,
+        "authors": 10,
+        "files_per_commit": 1.92,
+        "large_pct": 0.0,
+        "median_added": 2.0,
+        "deleted": 150
+      },
+      {
+        "added": 1284,
+        "year": 2024,
+        "repo": "rustler",
+        "files": 82,
+        "commits": 42,
+        "authors": 8,
+        "files_per_commit": 1.95,
+        "large_pct": 0.0,
+        "median_added": 5.0,
+        "deleted": 302
+      },
+      {
+        "added": 337,
+        "year": 2025,
+        "repo": "rustler",
+        "files": 27,
+        "commits": 15,
+        "authors": 2,
+        "files_per_commit": 1.8,
+        "large_pct": 0.0,
+        "median_added": 1.0,
+        "deleted": 154
+      }
+    ],
+    "per_quarter": [
+      {
+        "added": 24001,
+        "files": 1314,
+        "commits": 527,
+        "quarter": "2021T1",
+        "authors": 110,
+        "files_per_commit": 2.49,
+        "large_pct": 3.98,
+        "median_added": 8.0,
+        "deleted": 10336
+      },
+      {
+        "added": 19124,
+        "files": 1126,
+        "commits": 453,
+        "quarter": "2021T2",
+        "authors": 96,
+        "files_per_commit": 2.49,
+        "large_pct": 2.43,
+        "median_added": 10.0,
+        "deleted": 8066
+      },
+      {
+        "added": 24918,
+        "files": 1386,
+        "commits": 536,
+        "quarter": "2021T3",
+        "authors": 107,
+        "files_per_commit": 2.59,
+        "large_pct": 3.17,
+        "median_added": 10.0,
+        "deleted": 9378
+      },
+      {
+        "added": 21316,
+        "files": 1299,
+        "commits": 553,
+        "quarter": "2021T4",
+        "authors": 109,
+        "files_per_commit": 2.35,
+        "large_pct": 2.89,
+        "median_added": 10.0,
+        "deleted": 9150
+      },
+      {
+        "added": 23804,
+        "files": 1342,
+        "commits": 523,
+        "quarter": "2022T1",
+        "authors": 137,
+        "files_per_commit": 2.57,
+        "large_pct": 2.87,
+        "median_added": 10.0,
+        "deleted": 9363
+      },
+      {
+        "added": 19659,
+        "files": 1157,
+        "commits": 496,
+        "quarter": "2022T2",
+        "authors": 99,
+        "files_per_commit": 2.33,
+        "large_pct": 2.02,
+        "median_added": 10.0,
+        "deleted": 7730
+      },
+      {
+        "added": 40759,
+        "files": 2065,
+        "commits": 809,
+        "quarter": "2022T3",
+        "authors": 101,
+        "files_per_commit": 2.55,
+        "large_pct": 2.35,
+        "median_added": 8.0,
+        "deleted": 20487
+      },
+      {
+        "added": 25385,
+        "files": 1876,
+        "commits": 570,
+        "quarter": "2022T4",
+        "authors": 115,
+        "files_per_commit": 3.29,
+        "large_pct": 4.91,
+        "median_added": 9.0,
+        "deleted": 23026
+      },
+      {
+        "added": 25985,
+        "files": 1582,
+        "commits": 609,
+        "quarter": "2023T1",
+        "authors": 110,
+        "files_per_commit": 2.6,
+        "large_pct": 3.94,
+        "median_added": 8.0,
+        "deleted": 11820
+      },
+      {
+        "added": 21790,
+        "files": 1106,
+        "commits": 414,
+        "quarter": "2023T2",
+        "authors": 85,
+        "files_per_commit": 2.67,
+        "large_pct": 5.31,
+        "median_added": 10.0,
+        "deleted": 10098
+      },
+      {
+        "added": 22243,
+        "files": 1165,
+        "commits": 449,
+        "quarter": "2023T3",
+        "authors": 80,
+        "files_per_commit": 2.59,
+        "large_pct": 4.23,
+        "median_added": 11.0,
+        "deleted": 11358
+      },
+      {
+        "added": 45539,
+        "files": 2219,
+        "commits": 517,
+        "quarter": "2023T4",
+        "authors": 91,
+        "files_per_commit": 4.29,
+        "large_pct": 10.64,
+        "median_added": 13.0,
+        "deleted": 21358
+      },
+      {
+        "added": 46050,
+        "files": 2223,
+        "commits": 521,
+        "quarter": "2024T1",
+        "authors": 82,
+        "files_per_commit": 4.27,
+        "large_pct": 10.56,
+        "median_added": 14.0,
+        "deleted": 26367
+      },
+      {
+        "added": 55362,
+        "files": 2277,
+        "commits": 556,
+        "quarter": "2024T2",
+        "authors": 97,
+        "files_per_commit": 4.1,
+        "large_pct": 8.99,
+        "median_added": 17.0,
+        "deleted": 25633
+      },
+      {
+        "added": 35499,
+        "files": 1741,
+        "commits": 391,
+        "quarter": "2024T3",
+        "authors": 88,
+        "files_per_commit": 4.45,
+        "large_pct": 12.02,
+        "median_added": 15.0,
+        "deleted": 21112
+      },
+      {
+        "added": 57003,
+        "files": 2857,
+        "commits": 623,
+        "quarter": "2024T4",
+        "authors": 93,
+        "files_per_commit": 4.59,
+        "large_pct": 9.31,
+        "median_added": 19.0,
+        "deleted": 34298
+      },
+      {
+        "added": 55429,
+        "files": 3081,
+        "commits": 542,
+        "quarter": "2025T1",
+        "authors": 81,
+        "files_per_commit": 5.68,
+        "large_pct": 12.73,
+        "median_added": 19.0,
+        "deleted": 25969
+      },
+      {
+        "added": 53856,
+        "files": 2340,
+        "commits": 559,
+        "quarter": "2025T2",
+        "authors": 75,
+        "files_per_commit": 4.19,
+        "large_pct": 10.91,
+        "median_added": 20.0,
+        "deleted": 21877
+      },
+      {
+        "added": 42998,
+        "files": 1925,
+        "commits": 439,
+        "quarter": "2025T3",
+        "authors": 68,
+        "files_per_commit": 4.38,
+        "large_pct": 10.25,
+        "median_added": 20.0,
+        "deleted": 22105
+      },
+      {
+        "added": 58940,
+        "files": 2557,
+        "commits": 527,
+        "quarter": "2025T4",
+        "authors": 73,
+        "files_per_commit": 4.85,
+        "large_pct": 8.73,
+        "median_added": 23.0,
+        "deleted": 37297
+      }
+    ],
+    "without_analytics": [
+      {
+        "added": 66178,
+        "year": 2021,
+        "files": 3815,
+        "commits": 1646,
+        "authors": 280,
+        "files_per_commit": 2.32,
+        "large_pct": 2.49,
+        "median_added": 10.0,
+        "deleted": 27059
+      },
+      {
+        "added": 85881,
+        "year": 2022,
+        "files": 5321,
+        "commits": 2050,
+        "authors": 307,
+        "files_per_commit": 2.6,
+        "large_pct": 2.63,
+        "median_added": 9.0,
+        "deleted": 51342
+      },
+      {
+        "added": 49210,
+        "year": 2023,
+        "files": 3522,
+        "commits": 1565,
+        "authors": 251,
+        "files_per_commit": 2.25,
+        "large_pct": 2.49,
+        "median_added": 7.0,
+        "deleted": 25712
+      },
+      {
+        "added": 69662,
+        "year": 2024,
+        "files": 4505,
+        "commits": 1434,
+        "authors": 243,
+        "files_per_commit": 3.14,
+        "large_pct": 5.51,
+        "median_added": 12.0,
+        "deleted": 40584
+      },
+      {
+        "added": 97999,
+        "year": 2025,
+        "files": 5504,
+        "commits": 1423,
+        "authors": 186,
+        "files_per_commit": 3.87,
+        "large_pct": 6.11,
+        "median_added": 16.0,
+        "deleted": 53930
+      }
+    ],
+    "vulnerable_density": [
+      {
+        "added": 89359,
+        "year": 2021,
+        "vulnerable": 21,
+        "per_10k_lines": 2.35
+      },
+      {
+        "added": 109607,
+        "year": 2022,
+        "vulnerable": 41,
+        "per_10k_lines": 3.74
+      },
+      {
+        "added": 115557,
+        "year": 2023,
+        "vulnerable": 28,
+        "per_10k_lines": 2.42
+      },
+      {
+        "added": 193914,
+        "year": 2024,
+        "vulnerable": 45,
+        "per_10k_lines": 2.32
+      },
+      {
+        "added": 211223,
+        "year": 2025,
+        "vulnerable": 49,
+        "per_10k_lines": 2.32
+      }
+    ],
+    "vulnerable_by_size": [
+      {
+        "band": "1",
+        "commits": 4721,
+        "vulnerable": 72,
+        "proportion": 1.53
+      },
+      {
+        "band": "2 a 4",
+        "commits": 4192,
+        "vulnerable": 73,
+        "proportion": 1.74
+      },
+      {
+        "band": "5 a 9",
+        "commits": 1013,
+        "vulnerable": 20,
+        "proportion": 1.97
+      },
+      {
+        "band": "10 ou mais",
+        "commits": 688,
+        "vulnerable": 19,
+        "proportion": 2.76
+      }
+    ]
+  },
+  "model": "claude-opus-5-5",
   "agreement": {
     "all": {
       "precision": 0.6372549019607843,
       "n": 4183,
+      "kappa": 0.6732018693719366,
+      "recall": 0.7303370786516854,
+      "f1": 0.6806282722513088,
       "confusion": {
         "true_pos": 65,
         "false_pos": 37,
         "false_neg": 24,
         "true_neg": 4057
-      },
-      "recall": 0.7303370786516854,
-      "f1": 0.6806282722513088,
-      "kappa": 0.6732018693719366
+      }
     },
     "eval": {
       "precision": 0.6222222222222222,
       "n": 1953,
+      "kappa": 0.6205690669209981,
+      "recall": 0.6363636363636364,
+      "f1": 0.6292134831460675,
       "confusion": {
         "true_pos": 28,
         "false_pos": 17,
         "false_neg": 16,
         "true_neg": 1892
-      },
-      "recall": 0.6363636363636364,
-      "f1": 0.6292134831460675,
-      "kappa": 0.6205690669209981
+      }
     },
     "dev": {
       "precision": 0.6491228070175439,
       "n": 2230,
+      "kappa": 0.71915620923852,
+      "recall": 0.8222222222222222,
+      "f1": 0.7254901960784313,
       "confusion": {
         "true_pos": 37,
         "false_pos": 20,
         "false_neg": 8,
         "true_neg": 2165
-      },
-      "recall": 0.8222222222222222,
-      "f1": 0.7254901960784313,
-      "kappa": 0.71915620923852
+      }
     },
     "runs": {
       "n": 1142,
@@ -107,7 +1166,7 @@
       "unanimous_pct": 97.2
     }
   },
-  "model": "claude-opus-5-5",
+  "prompt_version": "v2",
   "per_year": [
     {
       "year": 2012,
@@ -285,6 +1344,5 @@
         "first_added": "2026-10-06"
       }
     ]
-  },
-  "prompt_version": "v2"
+  }
 }

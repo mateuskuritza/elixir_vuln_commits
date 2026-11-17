@@ -50,6 +50,25 @@ defmodule VulnCommits.GitTest do
     assert Git.files(fx.dir, fx.b) == ["README.md", "lib/a.ex"]
   end
 
+  test "numstat conta linhas adicionadas e removidas por arquivo", fx do
+    entries = Git.numstat(fx.dir, fx.b)
+
+    assert Enum.sort_by(entries, & &1.path) == [
+             %{path: "README.md", added: 1, deleted: 0},
+             %{path: "lib/a.ex", added: 1, deleted: 0}
+           ]
+  end
+
+  test "parse_numstat usa o caminho novo em rename e zera arquivo binário" do
+    tokens = ["3\t1\tlib/a.ex", "2\t0\t", "lib/old.ex", "lib/new.ex", "-\t-\tlogo.png", ""]
+
+    assert Git.parse_numstat(tokens) == [
+             %{path: "lib/a.ex", added: 3, deleted: 1},
+             %{path: "lib/new.ex", added: 2, deleted: 0},
+             %{path: "logo.png", added: 0, deleted: 0}
+           ]
+  end
+
   test "object_exists? acha o commit fora da main e nega hash inexistente", fx do
     assert Git.object_exists?(fx.dir, fx.g)
     refute Git.object_exists?(fx.dir, String.duplicate("0", 40))

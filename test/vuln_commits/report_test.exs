@@ -111,6 +111,49 @@ defmodule VulnCommits.ReportTest do
     end
   end
 
+  describe "volume e vulnerabilidade" do
+    test "vulnerable_density divide os vulneráveis pelas linhas adicionadas" do
+      extended = [
+        commit("e1", year: 2024, period: :extended, human: :vulnerable),
+        commit("e2", year: 2024, period: :extended),
+        commit("e3", year: 2024, period: :extended, human: :vulnerable, bot: true)
+      ]
+
+      lines = %{
+        "e1" => %{added: 1500, deleted: 0},
+        "e2" => %{added: 500, deleted: 0},
+        "e3" => %{added: 9000, deleted: 0}
+      }
+
+      rows = Report.vulnerable_density(extended, labels_from(extended), lines)
+
+      assert Enum.find(rows, &(&1.year == 2024)) ==
+               %{year: 2024, vulnerable: 1, added: 2000, per_10k_lines: 5.0}
+
+      assert Enum.find(rows, &(&1.year == 2021)).per_10k_lines == 0.0
+    end
+
+    test "vulnerable_by_size separa os commits por número de arquivos" do
+      many = Enum.map(1..12, &"lib/f#{&1}.ex")
+
+      extended = [
+        commit("e1", period: :extended, human: :vulnerable),
+        commit("e2", period: :extended),
+        commit("e3", period: :extended, files: ["a.ex", "b.ex"]),
+        commit("e4", period: :extended, files: many, human: :vulnerable)
+      ]
+
+      rows = Report.vulnerable_by_size(extended, labels_from(extended))
+
+      assert rows == [
+               %{band: "1", commits: 2, vulnerable: 1, proportion: 50.0},
+               %{band: "2 a 4", commits: 1, vulnerable: 0, proportion: 0.0},
+               %{band: "5 a 9", commits: 0, vulnerable: 0, proportion: 0.0},
+               %{band: "10 ou mais", commits: 1, vulnerable: 1, proportion: 100.0}
+             ]
+    end
+  end
+
   describe "per_year/3" do
     test "14 linhas de 2012 a 2025" do
       original = three()

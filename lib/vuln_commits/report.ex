@@ -200,6 +200,49 @@ defmodule VulnCommits.Report do
     end
   end
 
+  def vulnerable_density(extended, labels, lines) do
+    not_bots = Enum.reject(extended, fn commit -> commit.bot end)
+    by_year = Enum.group_by(not_bots, fn commit -> commit.year end)
+
+    Enum.map(Enum.to_list(2021..2025), fn year ->
+      group = Map.get(by_year, year, [])
+      added = Enum.sum(Enum.map(group, fn commit -> Map.fetch!(lines, commit.hash).added end))
+      vulnerable_count = length(vulnerable(group, labels))
+
+      %{
+        year: year,
+        vulnerable: vulnerable_count,
+        added: added,
+        per_10k_lines: per_10k(vulnerable_count, added)
+      }
+    end)
+  end
+
+  defp per_10k(_count, 0), do: 0.0
+  defp per_10k(count, added), do: Float.round(10_000 * count / added, 2)
+
+  def vulnerable_by_size(extended, labels) do
+    not_bots = Enum.reject(extended, fn commit -> commit.bot end)
+    by_band = Enum.group_by(not_bots, fn commit -> size_band(length(commit.elixir_files)) end)
+
+    Enum.map(["1", "2 a 4", "5 a 9", "10 ou mais"], fn band ->
+      group = Map.get(by_band, band, [])
+      vulnerable_count = length(vulnerable(group, labels))
+
+      %{
+        band: band,
+        commits: length(group),
+        vulnerable: vulnerable_count,
+        proportion: Metrics.proportion(vulnerable_count, length(group))
+      }
+    end)
+  end
+
+  defp size_band(1), do: "1"
+  defp size_band(count) when count < 5, do: "2 a 4"
+  defp size_band(count) when count < 10, do: "5 a 9"
+  defp size_band(_count), do: "10 ou mais"
+
   def bots(extended) do
     by_year = Enum.group_by(extended, fn commit -> commit.year end)
     years = Enum.to_list(2021..2025)
