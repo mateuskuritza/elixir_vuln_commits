@@ -8,23 +8,25 @@ defmodule VulnCommits.Git do
   def clone(owner_repo, dir), do: clone_from(clone_url(owner_repo), dir)
 
   defp clone_from(url, dir) do
-    with {_, 0} <-
-           System.cmd("git", ["clone", "--no-checkout", "-q", url, dir], stderr_to_stdout: true),
-         {_, 0} <-
-           System.cmd(
-             "git",
-             [
-               "fetch",
-               "-q",
-               "origin",
-               "+refs/heads/*:refs/remotes/origin/*",
-               "+refs/tags/*:refs/tags/*"
-             ],
-             cd: dir,
-             stderr_to_stdout: true
-           ) do
-      :ok
-    else
+    clone_args = ["clone", "--no-checkout", "-q", url, dir]
+
+    case System.cmd("git", clone_args, stderr_to_stdout: true) do
+      {_, 0} -> fetch_all_refs(dir)
+      {out, _code} -> {:error, out}
+    end
+  end
+
+  defp fetch_all_refs(dir) do
+    fetch_args = [
+      "fetch",
+      "-q",
+      "origin",
+      "+refs/heads/*:refs/remotes/origin/*",
+      "+refs/tags/*:refs/tags/*"
+    ]
+
+    case System.cmd("git", fetch_args, cd: dir, stderr_to_stdout: true) do
+      {_, 0} -> :ok
       {out, _code} -> {:error, out}
     end
   end
@@ -41,13 +43,15 @@ defmodule VulnCommits.Git do
   end
 
   def default_branch(dir) do
-    dir
-    |> git!(["symbolic-ref", "refs/remotes/origin/HEAD"])
-    |> String.trim()
-    |> String.replace_prefix("refs/remotes/origin/", "")
+    output = git!(dir, ["symbolic-ref", "refs/remotes/origin/HEAD"])
+    ref = String.trim(output)
+    String.replace_prefix(ref, "refs/remotes/origin/", "")
   end
 
-  def head(dir, ref), do: dir |> git!(["rev-parse", ref]) |> String.trim()
+  def head(dir, ref) do
+    output = git!(dir, ["rev-parse", ref])
+    String.trim(output)
+  end
 
   def object_exists?(dir, hash) do
     {_, status} =
@@ -59,19 +63,24 @@ defmodule VulnCommits.Git do
   def log(dir, ref, opts) do
     since = Keyword.fetch!(opts, :since)
     until = Keyword.fetch!(opts, :until)
+    no_merges = Keyword.get(opts, :no_merges, false)
+
+    base_args = [
+      "log",
+      "--format=" <> @format,
+      "--until=#{Date.add(until, 1)}T23:59:59"
+    ]
 
     args =
-      [
-        "log",
-        "--format=" <> @format,
-        "--until=#{Date.add(until, 1)}T23:59:59"
-      ] ++
-        if(Keyword.get(opts, :no_merges, false), do: ["--no-merges"], else: []) ++ [ref]
+      if no_merges do
+        base_args ++ ["--no-merges", ref]
+      else
+        base_args ++ [ref]
+      end
 
-    dir
-    |> git!(args)
-    |> parse_log()
-    |> Enum.filter(&in_range?(&1.date, since, until))
+    output = git!(dir, args)
+    entries = parse_log(output)
+    Enum.filter(entries, fn entry -> in_range?(entry.date, since, until) end)
   end
 
   defp in_range?(date, since, until) do
@@ -79,55 +88,65 @@ defmodule VulnCommits.Git do
   end
 
   def parse_log(binary) do
-    binary
-    |> Text.scrub()
-    |> String.split(<<0x1E>>)
-    |> Enum.map(&String.trim_leading(&1, "\n"))
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.map(&parse_record/1)
+    text = Text.scrub(binary)
+    records = String.split(text, <<0x1E>>)
+    records = Enum.map(records, fn record -> String.trim_leading(record, "\n") end)
+    records = Enum.reject(records, fn record -> record == "" end)
+    Enum.map(records, fn record -> parse_record(record) end)
   end
 
   defp parse_record(record) do
     [hash, date, name, email, parents, message] = String.split(record, <<0x1F>>, parts: 6)
+    parent_list = String.split(parents, " ", trim: true)
 
     %{
       hash: hash,
-      date: date |> binary_part(0, 10) |> Date.from_iso8601!(),
+      date: to_date(date),
       author_name: name,
       author_email: email,
       message: String.trim_trailing(message, "\n"),
-      merge?: length(String.split(parents, " ", trim: true)) >= 2
+      merge?: length(parent_list) >= 2
     }
   end
 
+  defp to_date(iso) do
+    day = binary_part(iso, 0, 10)
+    Date.from_iso8601!(day)
+  end
+
   def files(dir, hash) do
-    dir
-    |> git!(["-c", "core.quotepath=off", "show", "--format=", "--name-only", hash])
-    |> String.split("\n", trim: true)
-    |> Enum.sort()
+    output = git!(dir, ["-c", "core.quotepath=off", "show", "--format=", "--name-only", hash])
+    lines = String.split(output, "\n", trim: true)
+    Enum.sort(lines)
   end
 
   def diff(dir, hash, paths) do
-    args =
-      ["show", "--format=", "--no-color", hash] ++ if(paths == [], do: [], else: ["--" | paths])
+    base_args = ["show", "--format=", "--no-color", hash]
 
-    dir |> git!(args) |> Text.scrub()
+    args =
+      if paths == [] do
+        base_args
+      else
+        base_args ++ ["--"] ++ paths
+      end
+
+    output = git!(dir, args)
+    Text.scrub(output)
   end
 
   def first_added(dir, path) do
-    case dir
-         |> git!(["log", "--diff-filter=A", "--format=%cI", "-1", "HEAD", "--", path])
-         |> String.trim() do
+    output = git!(dir, ["log", "--diff-filter=A", "--format=%cI", "-1", "HEAD", "--", path])
+
+    case String.trim(output) do
       "" -> nil
-      iso -> iso |> binary_part(0, 10) |> Date.from_iso8601!()
+      iso -> to_date(iso)
     end
   end
 
   def show_message(dir, hash) do
-    dir
-    |> git!(["show", "-s", "--format=" <> @format, hash])
-    |> parse_log()
-    |> hd()
+    output = git!(dir, ["show", "-s", "--format=" <> @format, hash])
+    entries = parse_log(output)
+    hd(entries)
   end
 
   defp git!(dir, args) do

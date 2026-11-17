@@ -1,6 +1,9 @@
 defmodule VulnCommits.Judge do
-  alias VulnCommits.{Commit, Vote}
-  alias VulnCommits.Judge.{OpenAI, Prompt, Store}
+  alias VulnCommits.Commit
+  alias VulnCommits.Vote
+  alias VulnCommits.Judge.OpenAI
+  alias VulnCommits.Judge.Prompt
+  alias VulnCommits.Judge.Store
 
   @runs [1, 2, 3]
   @max_concurrency 4
@@ -9,8 +12,9 @@ defmodule VulnCommits.Judge do
   def candidates(commits, period, opts) do
     years = Keyword.get(opts, :years)
 
-    Enum.filter(commits, fn c ->
-      c.keyword_hit and not c.bot and c.period == period and in_years?(c.year, years)
+    Enum.filter(commits, fn commit ->
+      commit.keyword_hit and not commit.bot and commit.period == period and
+        in_years?(commit.year, years)
     end)
   end
 
@@ -18,34 +22,61 @@ defmodule VulnCommits.Judge do
   defp in_years?(year, range), do: year in range
 
   def pending(candidates, done_set, model, version) do
-    for c <- candidates,
-        run <- @runs,
-        not MapSet.member?(done_set, {c.hash, run, model, version}),
-        do: {c, run}
+    all_pairs =
+      Enum.flat_map(candidates, fn commit ->
+        Enum.map(@runs, fn run -> {commit, run} end)
+      end)
+
+    Enum.filter(all_pairs, fn {commit, run} ->
+      key = {commit.hash, run, model, version}
+      not MapSet.member?(done_set, key)
+    end)
   end
 
   def run(pairs, opts) do
-    model = Keyword.get_lazy(opts, :model, &OpenAI.model/0)
-    version = Keyword.get_lazy(opts, :version, &Prompt.version/0)
+    model =
+      case Keyword.fetch(opts, :model) do
+        {:ok, model} -> model
+        :error -> OpenAI.model()
+      end
+
+    version =
+      case Keyword.fetch(opts, :version) do
+        {:ok, version} -> version
+        :error -> Prompt.version()
+      end
+
     dirs = Keyword.fetch!(opts, :dirs)
     path = Keyword.fetch!(opts, :path)
-    judge_fun = Keyword.get_lazy(opts, :judge_fun, fn -> default_judge(model, version) end)
+
+    judge_fun =
+      case Keyword.fetch(opts, :judge_fun) do
+        {:ok, judge_fun} -> judge_fun
+        :error -> default_judge(model, version)
+      end
+
     total = length(pairs)
 
-    pairs
-    |> Task.async_stream(
-      fn {commit, run} ->
-        commit
-        |> safe_judge(Map.get(dirs, commit.repo), run, judge_fun)
-        |> to_record(commit, run, model, version)
-      end,
-      max_concurrency: @max_concurrency,
-      timeout: :infinity
-    )
-    |> Enum.with_index(1)
-    |> Enum.each(fn {{:ok, record}, i} ->
+    judge_one = fn {commit, run} ->
+      dir = Map.get(dirs, commit.repo)
+      result = safe_judge(commit, dir, run, judge_fun)
+      to_record(result, commit, run, model, version)
+    end
+
+    results =
+      Task.async_stream(pairs, judge_one,
+        max_concurrency: @max_concurrency,
+        timeout: :infinity
+      )
+
+    numbered = Enum.with_index(results, 1)
+
+    Enum.each(numbered, fn {{:ok, record}, number} ->
       Store.append(path, record)
-      if rem(i, @progress_every) == 0, do: IO.puts("julgados #{i} de #{total}")
+
+      if rem(number, @progress_every) == 0 do
+        IO.puts("julgados #{number} de #{total}")
+      end
     end)
 
     IO.puts("julgados #{total} de #{total}")
@@ -53,9 +84,11 @@ defmodule VulnCommits.Judge do
   end
 
   defp safe_judge(commit, dir, run, judge_fun) do
-    judge_fun.(commit, dir, run)
-  rescue
-    e -> {:error, {:exception, Exception.message(e)}}
+    try do
+      judge_fun.(commit, dir, run)
+    rescue
+      error -> {:error, {:exception, Exception.message(error)}}
+    end
   end
 
   defp default_judge(model, version) do
@@ -69,29 +102,35 @@ defmodule VulnCommits.Judge do
   end
 
   defp to_record({:ok, judgment}, commit, run, model, version) do
-    base(commit, run, model, version)
-    |> Map.merge(%{
+    record = base(commit, run, model, version)
+
+    extra = %{
       label: label_name(judgment.label),
       cia: judgment.cia,
       reason: judgment.reason,
       error: nil,
       usage: judgment.usage
-    })
+    }
+
+    Map.merge(record, extra)
   end
 
   defp to_record({:error, reason}, commit, run, model, version) do
-    base(commit, run, model, version)
-    |> Map.merge(%{label: "ERROR", cia: nil, reason: nil, error: inspect(reason), usage: nil})
+    record = base(commit, run, model, version)
+    extra = %{label: "ERROR", cia: nil, reason: nil, error: inspect(reason), usage: nil}
+    Map.merge(record, extra)
   end
 
   defp base(commit, run, model, version) do
+    now = DateTime.utc_now()
+
     %{
       hash: commit.hash,
       repo: commit.repo,
       run: run,
       model: model,
       prompt_version: version,
-      judged_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      judged_at: DateTime.to_iso8601(now)
     }
   end
 
@@ -99,23 +138,26 @@ defmodule VulnCommits.Judge do
   defp label_name(:neutral), do: "NEUTRAL"
 
   def unjudged(candidates, labels) do
-    Enum.count(candidates, fn c ->
-      length(Map.fetch!(labels, c.hash).votes) < length(@runs)
+    Enum.count(candidates, fn commit ->
+      label = Map.fetch!(labels, commit.hash)
+      length(label.votes) < length(@runs)
     end)
   end
 
   def labels(commits, records, model, version) do
     by_hash = Store.by_commit(records, model, version)
 
-    Map.new(commits, fn c ->
-      if candidate?(c) do
-        votes = Map.get(by_hash, c.hash, [])
-        {c.hash, %{votes: votes, final: Vote.majority(votes)}}
+    Map.new(commits, fn commit ->
+      if candidate?(commit) do
+        votes = Map.get(by_hash, commit.hash, [])
+        {commit.hash, %{votes: votes, final: Vote.majority(votes)}}
       else
-        {c.hash, %{votes: [], final: :neutral}}
+        {commit.hash, %{votes: [], final: :neutral}}
       end
     end)
   end
 
-  defp candidate?(%Commit{keyword_hit: keyword_hit, bot: bot}), do: keyword_hit and not bot
+  defp candidate?(%Commit{keyword_hit: keyword_hit, bot: bot}) do
+    keyword_hit and not bot
+  end
 end

@@ -17,16 +17,16 @@ defmodule Mix.Tasks.Vuln.Report do
     {opts, _rest, _invalid} = OptionParser.parse(args, strict: [dev: :boolean])
 
     commits = Collect.load(@commits)
-    original = Enum.filter(commits, &(&1.period == :original))
-    extended = Enum.filter(commits, &(&1.period == :extended))
+    original = Enum.filter(commits, fn commit -> commit.period == :original end)
+    extended = Enum.filter(commits, fn commit -> commit.period == :extended end)
 
     records = Store.load(@judgments)
     labels = Judge.labels(commits, records, Batch.model(), Prompt.version())
     warn_if_empty(labels)
 
-    candidates =
-      Judge.candidates(commits, :original, years: nil) ++
-        Judge.candidates(commits, :extended, years: nil)
+    original_candidates = Judge.candidates(commits, :original, years: nil)
+    extended_candidates = Judge.candidates(commits, :extended, years: nil)
+    candidates = original_candidates ++ extended_candidates
 
     warn_unjudged(candidates, labels)
 
@@ -53,7 +53,12 @@ defmodule Mix.Tasks.Vuln.Report do
   end
 
   defp warn_if_empty(labels) do
-    if Enum.all?(labels, fn {_hash, label} -> label.votes == [] end) do
+    no_votes =
+      Enum.all?(labels, fn {_hash, label} ->
+        label.votes == []
+      end)
+
+    if no_votes do
       Mix.shell().info(
         "AVISO: sem julgamentos ainda (#{@judgments}). todo candidato conta como neutral."
       )
@@ -61,34 +66,35 @@ defmodule Mix.Tasks.Vuln.Report do
   end
 
   defp warn_unjudged(candidates, labels) do
-    n = Judge.unjudged(candidates, labels)
+    count = Judge.unjudged(candidates, labels)
 
-    if n > 0 do
+    if count > 0 do
       Mix.shell().info(
-        "AVISO: #{n} candidatos com menos de 3 votos válidos; os números de 'nosso' ainda não são finais"
+        "AVISO: #{count} candidatos com menos de 3 votos válidos; os números de 'nosso' ainda não são finais"
       )
     end
   end
 
   defp print_dev(dev) do
-    c = dev.confusion
     Mix.shell().info("dev (2012-2016): n=#{dev.n}")
     Mix.shell().info("kappa: #{Float.round(dev.kappa, 4)}")
     Mix.shell().info("precisao: #{Float.round(dev.precision, 4)}")
     Mix.shell().info("revocacao: #{Float.round(dev.recall, 4)}")
     Mix.shell().info("f1: #{Float.round(dev.f1, 4)}")
-    Mix.shell().info("confusao: #{inspect(c)}")
+    Mix.shell().info("confusao: #{inspect(dev.confusion)}")
   end
 
   defp load_markers() do
     if File.exists?(@markers) do
-      for row <- CSV.read(@markers) do
+      rows = CSV.read(@markers)
+
+      Enum.map(rows, fn row ->
         %{
           repo: row["repo"],
           file: row["file"],
           first_added: Date.from_iso8601!(row["first_added"])
         }
-      end
+      end)
     else
       []
     end
@@ -96,120 +102,145 @@ defmodule Mix.Tasks.Vuln.Report do
 
   defp manual_agreement(labels) do
     if File.exists?(@labeled) do
-      @labeled |> Sample.import() |> Sample.agreement(labels)
+      manual = Sample.import(@labeled)
+      Sample.agreement(manual, labels)
     end
   end
 
   defp write_all(summary) do
     File.mkdir_p!(@out)
 
-    for {name, headers, rows, caption} <- tables(summary) do
-      File.write!(
-        Path.join(@out, "#{name}.tex"),
-        Latex.table(headers, rows, caption, "tab:#{name}")
-      )
+    Enum.each(tables(summary), fn table ->
+      write_table(table)
+    end)
 
-      CSV.write(Path.join(@out, "#{name}.csv"), headers, Enum.map(rows, &csv_row/1))
-    end
-
-    File.write!(Path.join(@out, "summary.json"), Jason.encode!(summary, pretty: true) <> "\n")
+    json = Jason.encode!(summary, pretty: true)
+    File.write!(Path.join(@out, "summary.json"), json <> "\n")
     Mix.shell().info("tabelas e summary.json gravados em #{@out}/")
   end
 
-  defp tables(s) do
+  defp write_table({name, headers, rows, caption}) do
+    latex = Latex.table(headers, rows, caption, "tab:#{name}")
+    File.write!(Path.join(@out, "#{name}.tex"), latex)
+
+    csv_rows = Enum.map(rows, fn row -> csv_row(row) end)
+    CSV.write(Path.join(@out, "#{name}.csv"), headers, csv_rows)
+  end
+
+  defp tables(summary) do
     [
-      {"match", ["métrica", "artigo", "humano (ativos)", "nosso"], match_rows(s.match),
+      {"match", ["métrica", "artigo", "humano (ativos)", "nosso"], match_rows(summary.match),
        "Comparação com o artigo original"},
       {"per_year", ["ano", "commits", "artigo (%)", "humano (%)", "nosso (%)"],
-       Enum.map(s.per_year, &[&1.year, &1.commits, &1.paper, &1.human_active, &1.ours]),
-       "Proporção de commits vulneráveis por ano"},
+       per_year_rows(summary.per_year), "Proporção de commits vulneráveis por ano"},
       {"agreement",
        ["conjunto", "n", "VP", "FP", "FN", "VN", "precisão", "revocação", "F1", "kappa"],
-       agreement_rows(s), "Concordância entre o modelo e o rótulo humano"},
+       agreement_rows(summary), "Concordância entre o modelo e o rótulo humano"},
       {"ai_markers", ["ano", "com marcador", "vuln. com", "sem marcador", "vuln. sem"],
-       Enum.map(
-         s.ai.per_year,
-         &[&1.year, &1.with_marker, &1.vulnerable_with, &1.without_marker, &1.vulnerable_without]
-       ), "Commits com e sem marcador de IA na mensagem"},
+       ai_marker_rows(summary.ai.per_year), "Commits com e sem marcador de IA na mensagem"},
       {"ai_repo_files", ["repositório", "arquivo", "primeira data"],
-       Enum.map(s.ai.repo_files, &[&1.repo, &1.file, Date.to_iso8601(&1.first_added)]),
+       ai_file_rows(summary.ai.repo_files),
        "Arquivos de instrução para agentes de IA nos repositórios"},
-      {"bots", ["ano", "commits de bots", "total"],
-       Enum.map(s.bots, &[&1.year, &1.bots, &1.total]), "Commits de bots no período estendido"}
+      {"bots", ["ano", "commits de bots", "total"], bot_rows(summary.bots),
+       "Commits de bots no período estendido"}
     ]
   end
 
-  defp match_rows(rows), do: Enum.map(rows, &[&1.metric, &1.paper, &1.human_active, &1.ours])
+  defp match_rows(rows) do
+    Enum.map(rows, fn row ->
+      [row.metric, row.paper, row.human_active, row.ours]
+    end)
+  end
 
-  defp agreement_rows(s) do
-    a = s.agreement
+  defp per_year_rows(rows) do
+    Enum.map(rows, fn row ->
+      [row.year, row.commits, row.paper, row.human_active, row.ours]
+    end)
+  end
+
+  defp ai_marker_rows(rows) do
+    Enum.map(rows, fn row ->
+      [row.year, row.with_marker, row.vulnerable_with, row.without_marker, row.vulnerable_without]
+    end)
+  end
+
+  defp ai_file_rows(rows) do
+    Enum.map(rows, fn row ->
+      [row.repo, row.file, Date.to_iso8601(row.first_added)]
+    end)
+  end
+
+  defp bot_rows(rows) do
+    Enum.map(rows, fn row ->
+      [row.year, row.bots, row.total]
+    end)
+  end
+
+  defp agreement_rows(summary) do
+    agreement = summary.agreement
 
     sets = [
-      ["avaliação (2017-2020)" | score_cells(a.eval)],
-      ["desenvolvimento (2012-2016)" | score_cells(a.dev)],
-      ["todos (2012-2020)" | score_cells(a.all)]
+      ["avaliação (2017-2020)" | score_cells(agreement.eval)],
+      ["desenvolvimento (2012-2016)" | score_cells(agreement.dev)],
+      ["todos (2012-2020)" | score_cells(agreement.all)]
     ]
 
     manual =
-      if s.manual do
-        [["amostra manual (2021-2025)" | manual_cells(s.manual)]]
+      if summary.manual do
+        [["amostra manual (2021-2025)" | manual_cells(summary.manual)]]
       else
         []
       end
 
     runs = [
-      [
-        "entre execuções (kappa médio)",
-        a.runs.n,
-        nil,
-        nil,
-        nil,
-        nil,
-        nil,
-        nil,
-        nil,
-        a.runs.mean_kappa
-      ],
-      [
-        "entre execuções (kappa mínimo)",
-        a.runs.n,
-        nil,
-        nil,
-        nil,
-        nil,
-        nil,
-        nil,
-        nil,
-        a.runs.min_kappa
-      ]
+      run_row("entre execuções (kappa médio)", agreement.runs.n, agreement.runs.mean_kappa),
+      run_row("entre execuções (kappa mínimo)", agreement.runs.n, agreement.runs.min_kappa)
     ]
 
     sets ++ manual ++ runs
   end
 
-  defp score_cells(s) do
-    c = s.confusion
-    [s.n, c.true_pos, c.false_pos, c.false_neg, c.true_neg, s.precision, s.recall, s.f1, s.kappa]
+  defp run_row(label, n, kappa) do
+    [label, n, nil, nil, nil, nil, nil, nil, nil, kappa]
+  end
+
+  defp score_cells(scores) do
+    confusion = scores.confusion
+
+    [
+      scores.n,
+      confusion.true_pos,
+      confusion.false_pos,
+      confusion.false_neg,
+      confusion.true_neg,
+      scores.precision,
+      scores.recall,
+      scores.f1,
+      scores.kappa
+    ]
   end
 
   defp manual_cells(manual) do
-    c = manual.confusion
-    prf = Metrics.precision_recall_f1(c)
+    confusion = manual.confusion
+    scores = Metrics.precision_recall_f1(confusion)
 
     [
       manual.n,
-      c.true_pos,
-      c.false_pos,
-      c.false_neg,
-      c.true_neg,
-      prf.precision,
-      prf.recall,
-      prf.f1,
+      confusion.true_pos,
+      confusion.false_pos,
+      confusion.false_neg,
+      confusion.true_neg,
+      scores.precision,
+      scores.recall,
+      scores.f1,
       manual.kappa
     ]
   end
 
-  defp csv_row(cells), do: Enum.map(cells, &csv_cell/1)
+  defp csv_row(cells) do
+    Enum.map(cells, fn cell -> csv_cell(cell) end)
+  end
+
   defp csv_cell(nil), do: ""
   defp csv_cell(value), do: to_string(value)
 end

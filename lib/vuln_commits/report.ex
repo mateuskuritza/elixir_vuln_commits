@@ -1,5 +1,6 @@
 defmodule VulnCommits.Report do
-  alias VulnCommits.{Metrics, Vote}
+  alias VulnCommits.Metrics
+  alias VulnCommits.Vote
 
   @paper_table3 %{
     2012 => 0.94,
@@ -26,20 +27,28 @@ defmodule VulnCommits.Report do
   def paper_table3, do: @paper_table3
   def paper_totals, do: @paper_totals
 
-  defp ours(labels, commit), do: final(Map.fetch!(labels, commit.hash).final)
+  defp ours(labels, commit) do
+    label = Map.fetch!(labels, commit.hash)
+    final(label.final)
+  end
+
   defp final(:undecided), do: :neutral
   defp final(label), do: label
 
   defp human_labels(commits) do
-    Map.new(commits, &{&1.hash, %{votes: [], final: &1.human_label}})
+    Map.new(commits, fn commit ->
+      {commit.hash, %{votes: [], final: commit.human_label}}
+    end)
   end
 
-  defp vulnerable(commits, label_fun), do: Enum.filter(commits, &(label_fun.(&1) == :vulnerable))
+  defp vulnerable(commits, labels) do
+    Enum.filter(commits, fn commit -> ours(labels, commit) == :vulnerable end)
+  end
 
   def match(original, labels) do
     human = human_labels(original)
-    columns = [{:human_active, human}, {:ours, labels}]
-    stats = Map.new(columns, fn {key, map} -> {key, stats(original, map)} end)
+    human_stats = stats(original, human)
+    our_stats = stats(original, labels)
 
     metrics = [
       {"commits", :commits},
@@ -52,54 +61,65 @@ defmodule VulnCommits.Report do
       {"arquivos em vulneráveis (%)", :files_pct}
     ]
 
-    for {name, key} <- metrics do
+    Enum.map(metrics, fn {name, key} ->
       %{
         metric: name,
         paper: paper_value(key),
-        human_active: stats.human_active[key],
-        ours: stats.ours[key]
+        human_active: human_stats[key],
+        ours: our_stats[key]
       }
-    end
+    end)
   end
 
-  defp paper_value(:files_pct),
-    do: Metrics.proportion(@paper_totals.files_in_vulnerable, @paper_totals.files)
+  defp paper_value(:files_pct) do
+    Metrics.proportion(@paper_totals.files_in_vulnerable, @paper_totals.files)
+  end
 
   defp paper_value(key), do: Map.fetch!(@paper_totals, key)
 
   defp stats(commits, labels) do
-    vuln = vulnerable(commits, &ours(labels, &1))
+    vulnerable_commits = vulnerable(commits, labels)
 
     %{
       commits: length(commits),
-      vulnerable: length(vuln),
-      proportion: Metrics.proportion(length(vuln), length(commits)),
-      repos: commits |> Enum.map(& &1.repo) |> Enum.uniq() |> length(),
-      repos_with_vulnerable: vuln |> Enum.map(& &1.repo) |> Enum.uniq() |> length(),
+      vulnerable: length(vulnerable_commits),
+      proportion: Metrics.proportion(length(vulnerable_commits), length(commits)),
+      repos: count_repos(commits),
+      repos_with_vulnerable: count_repos(vulnerable_commits),
       files: count_files(commits),
-      files_in_vulnerable: count_files(vuln),
+      files_in_vulnerable: count_files(vulnerable_commits),
       files_pct: files_pct(commits, labels)
     }
   end
 
+  defp count_repos(commits) do
+    repos = Enum.map(commits, fn commit -> commit.repo end)
+    length(Enum.uniq(repos))
+  end
+
   defp count_files(commits) do
-    commits
-    |> Enum.flat_map(fn c -> Enum.map(c.elixir_files, &{c.repo, &1}) end)
-    |> Enum.uniq()
-    |> length()
+    files =
+      Enum.flat_map(commits, fn commit ->
+        Enum.map(commit.elixir_files, fn file -> {commit.repo, file} end)
+      end)
+
+    length(Enum.uniq(files))
   end
 
   def files_pct(commits, labels) do
-    vuln = vulnerable(commits, &ours(labels, &1))
-    Metrics.proportion(count_files(vuln), count_files(commits))
+    vulnerable_commits = vulnerable(commits, labels)
+    Metrics.proportion(count_files(vulnerable_commits), count_files(commits))
   end
 
   def per_year(original, extended, labels) do
     human = human_labels(original)
-    by_year = Enum.group_by(original, & &1.year)
-    ext_by_year = extended |> Enum.reject(& &1.bot) |> Enum.group_by(& &1.year)
+    by_year = Enum.group_by(original, fn commit -> commit.year end)
+    not_bots = Enum.reject(extended, fn commit -> commit.bot end)
+    extended_by_year = Enum.group_by(not_bots, fn commit -> commit.year end)
 
-    for year <- 2012..2025 do
+    years = Enum.to_list(2012..2025)
+
+    Enum.map(years, fn year ->
       if year <= 2020 do
         group = Map.get(by_year, year, [])
 
@@ -111,7 +131,7 @@ defmodule VulnCommits.Report do
           ours: share(group, labels)
         }
       else
-        group = Map.get(ext_by_year, year, [])
+        group = Map.get(extended_by_year, year, [])
 
         %{
           year: year,
@@ -121,11 +141,12 @@ defmodule VulnCommits.Report do
           ours: share(group, labels)
         }
       end
-    end
+    end)
   end
 
   defp share(commits, labels) do
-    Metrics.proportion(length(vulnerable(commits, &ours(labels, &1))), length(commits))
+    vulnerable_commits = vulnerable(commits, labels)
+    Metrics.proportion(length(vulnerable_commits), length(commits))
   end
 
   def agreement(original, labels, extended, opts \\ []) do
@@ -141,59 +162,74 @@ defmodule VulnCommits.Report do
   end
 
   defp scores(original, labels, years) do
-    pairs = for c <- original, c.year in years, do: {c.human_label, ours(labels, c)}
-    confusion = Metrics.confusion(pairs)
+    in_years = Enum.filter(original, fn commit -> commit.year in years end)
 
-    %{n: length(pairs), confusion: confusion, kappa: Metrics.cohen_kappa(pairs)}
-    |> Map.merge(Metrics.precision_recall_f1(confusion))
+    pairs =
+      Enum.map(in_years, fn commit ->
+        {commit.human_label, ours(labels, commit)}
+      end)
+
+    confusion = Metrics.confusion(pairs)
+    result = %{n: length(pairs), confusion: confusion, kappa: Metrics.cohen_kappa(pairs)}
+    Map.merge(result, Metrics.precision_recall_f1(confusion))
   end
 
   defp runs(commits, labels) do
-    finals = for c <- commits, do: Map.fetch!(labels, c.hash)
-    triples = for %{votes: [_, _, _] = votes} <- finals, do: votes
-    undecided = Enum.count(finals, &(&1.final == :undecided))
+    finals = Enum.map(commits, fn commit -> Map.fetch!(labels, commit.hash) end)
+    with_three_votes = Enum.filter(finals, fn label -> length(label.votes) == 3 end)
+    triples = Enum.map(with_three_votes, fn label -> label.votes end)
+    undecided = Enum.count(finals, fn label -> label.final == :undecided end)
 
     if triples == [] do
       %{n: 0, mean_kappa: nil, min_kappa: nil, unanimous_pct: nil, undecided: undecided}
     else
-      per_run = Enum.zip_with(triples, & &1)
-      kappa = Metrics.pairwise_kappa(per_run)
+      first_run = Enum.map(triples, fn [vote, _, _] -> vote end)
+      second_run = Enum.map(triples, fn [_, vote, _] -> vote end)
+      third_run = Enum.map(triples, fn [_, _, vote] -> vote end)
+      kappa = Metrics.pairwise_kappa([first_run, second_run, third_run])
+
+      unanimous = Enum.count(triples, fn votes -> Vote.unanimous?(votes) end)
 
       %{
         n: length(triples),
         mean_kappa: kappa.mean,
         min_kappa: kappa.min,
-        unanimous_pct:
-          Metrics.proportion(Enum.count(triples, &Vote.unanimous?/1), length(triples)),
+        unanimous_pct: Metrics.proportion(unanimous, length(triples)),
         undecided: undecided
       }
     end
   end
 
   def bots(extended) do
-    by_year = Enum.group_by(extended, & &1.year)
+    by_year = Enum.group_by(extended, fn commit -> commit.year end)
+    years = Enum.to_list(2021..2025)
 
-    for year <- 2021..2025 do
+    Enum.map(years, fn year ->
       group = Map.get(by_year, year, [])
-      %{year: year, bots: Enum.count(group, & &1.bot), total: length(group)}
-    end
+      bot_count = Enum.count(group, fn commit -> commit.bot end)
+      %{year: year, bots: bot_count, total: length(group)}
+    end)
   end
 
   def ai(extended, labels, repo_markers) do
-    by_year = extended |> Enum.reject(& &1.bot) |> Enum.group_by(& &1.year)
+    not_bots = Enum.reject(extended, fn commit -> commit.bot end)
+    by_year = Enum.group_by(not_bots, fn commit -> commit.year end)
+    years = Enum.to_list(2021..2025)
 
     per_year =
-      for year <- 2021..2025 do
-        {with, without} = by_year |> Map.get(year, []) |> Enum.split_with(&(&1.ai_markers != []))
+      Enum.map(years, fn year ->
+        group = Map.get(by_year, year, [])
+        with_marker = Enum.filter(group, fn commit -> commit.ai_markers != [] end)
+        without_marker = Enum.filter(group, fn commit -> commit.ai_markers == [] end)
 
         %{
           year: year,
-          with_marker: length(with),
-          vulnerable_with: length(vulnerable(with, &ours(labels, &1))),
-          without_marker: length(without),
-          vulnerable_without: length(vulnerable(without, &ours(labels, &1)))
+          with_marker: length(with_marker),
+          vulnerable_with: length(vulnerable(with_marker, labels)),
+          without_marker: length(without_marker),
+          vulnerable_without: length(vulnerable(without_marker, labels))
         }
-      end
+      end)
 
     %{per_year: per_year, repo_files: repo_markers}
   end

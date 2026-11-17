@@ -1,8 +1,9 @@
 defmodule VulnCommits.Judge.Batch do
-  alias VulnCommits.Judge.{Prompt, Store}
+  alias VulnCommits.Judge.Prompt
+  alias VulnCommits.Judge.Store
 
-  @labels %{"VULNERABLE" => "VULNERABLE", "NEUTRAL" => "NEUTRAL"}
-  @cias ~w(confidentiality integrity availability none)
+  @labels ["VULNERABLE", "NEUTRAL"]
+  @cias ["confidentiality", "integrity", "availability", "none"]
 
   def model, do: System.get_env("JUDGE_MODEL", "claude-opus-5-5")
 
@@ -12,21 +13,26 @@ defmodule VulnCommits.Judge.Batch do
     diff_fun = Keyword.fetch!(opts, :diff_fun)
     File.mkdir_p!(out_dir)
 
-    commits
-    |> Enum.chunk_every(size)
-    |> Enum.with_index(1)
-    |> Enum.map(fn {chunk, i} ->
-      path = Path.join(out_dir, "batch-#{String.pad_leading("#{i}", 3, "0")}.md")
+    chunks = Enum.chunk_every(commits, size)
+    numbered_chunks = Enum.with_index(chunks, 1)
+
+    Enum.map(numbered_chunks, fn {chunk, number} ->
+      number_text = String.pad_leading("#{number}", 3, "0")
+      path = Path.join(out_dir, "batch-#{number_text}.md")
       File.write!(path, batch_text(chunk, version, diff_fun))
-      %{path: path, hashes: Enum.map(chunk, & &1.hash)}
+      hashes = Enum.map(chunk, fn commit -> commit.hash end)
+      %{path: path, hashes: hashes}
     end)
   end
 
   defp batch_text(commits, version, diff_fun) do
-    blocks =
-      Enum.map_join(commits, "\n\n", fn c ->
-        "=== COMMIT #{c.hash} ===\n" <> Prompt.user(c, diff_fun.(c))
+    commit_texts =
+      Enum.map(commits, fn commit ->
+        diff = diff_fun.(commit)
+        "=== COMMIT #{commit.hash} ===\n" <> Prompt.user(commit, diff)
       end)
+
+    blocks = Enum.join(commit_texts, "\n\n")
 
     """
     # Lote de julgamento (#{length(commits)} commits)
@@ -46,31 +52,46 @@ defmodule VulnCommits.Judge.Batch do
   end
 
   def parse(text, expected) do
-    parsed =
-      text
-      |> String.split("\n")
-      |> Enum.map(&String.trim/1)
-      |> Enum.filter(&String.starts_with?(&1, "{"))
-      |> Enum.map(&decode/1)
+    lines = String.split(text, "\n")
+    trimmed = Enum.map(lines, fn line -> String.trim(line) end)
+    json_lines = Enum.filter(trimmed, fn line -> String.starts_with?(line, "{") end)
+    parsed = Enum.map(json_lines, fn line -> decode(line) end)
 
-    bad = Enum.filter(parsed, &match?({:error, _}, &1))
-    good = for {:ok, j} <- parsed, j["hash"] in expected, into: %{}, do: {j["hash"], j}
-    missing = Enum.reject(expected, &Map.has_key?(good, &1))
+    bad = Enum.filter(parsed, fn result -> error?(result) end)
 
-    case {bad, missing} do
-      {[], []} -> {:ok, Enum.map(expected, &Map.fetch!(good, &1))}
-      _ -> {:error, %{invalid: length(bad), missing: missing}}
+    good_judgments =
+      parsed
+      |> Enum.filter(fn result -> not error?(result) end)
+      |> Enum.map(fn {:ok, judgment} -> judgment end)
+
+    expected_judgments =
+      Enum.filter(good_judgments, fn judgment -> judgment["hash"] in expected end)
+
+    good = Map.new(expected_judgments, fn judgment -> {judgment["hash"], judgment} end)
+    missing = Enum.filter(expected, fn hash -> not Map.has_key?(good, hash) end)
+
+    if bad == [] and missing == [] do
+      ordered = Enum.map(expected, fn hash -> Map.fetch!(good, hash) end)
+      {:ok, ordered}
+    else
+      {:error, %{invalid: length(bad), missing: missing}}
     end
   end
 
+  defp error?({:error, _line}), do: true
+  defp error?({:ok, _judgment}), do: false
+
   defp decode(line) do
-    with {:ok, %{"hash" => h, "label" => l, "cia" => c} = j} when is_binary(h) <-
-           Jason.decode(line),
-         {:ok, _} <- Map.fetch(@labels, l),
-         true <- c in @cias do
-      {:ok, j}
-    else
-      _ -> {:error, line}
+    case Jason.decode(line) do
+      {:ok, %{"hash" => hash, "label" => label, "cia" => cia} = judgment} ->
+        if is_binary(hash) and label in @labels and cia in @cias do
+          {:ok, judgment}
+        else
+          {:error, line}
+        end
+
+      _other ->
+        {:error, line}
     end
   end
 
@@ -78,18 +99,20 @@ defmodule VulnCommits.Judge.Batch do
     run = Keyword.fetch!(opts, :run)
     model = Keyword.fetch!(opts, :model)
     version = Keyword.fetch!(opts, :version)
-    now = DateTime.utc_now() |> DateTime.to_iso8601()
+    now = DateTime.to_iso8601(DateTime.utc_now())
 
-    Enum.each(judgments, fn j ->
+    Enum.each(judgments, fn judgment ->
+      commit = Map.fetch!(commits_by_hash, judgment["hash"])
+
       Store.append(path, %{
-        hash: j["hash"],
-        repo: Map.fetch!(commits_by_hash, j["hash"]).repo,
+        hash: judgment["hash"],
+        repo: commit.repo,
         run: run,
         model: model,
         prompt_version: version,
-        label: j["label"],
-        cia: j["cia"],
-        reason: j["reason"],
+        label: judgment["label"],
+        cia: judgment["cia"],
+        reason: judgment["reason"],
         error: nil,
         usage: nil,
         judged_at: now

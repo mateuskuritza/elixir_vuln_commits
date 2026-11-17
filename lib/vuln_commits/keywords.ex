@@ -1,58 +1,62 @@
 defmodule VulnCommits.Keywords do
   alias VulnCommits.Text
 
-  @terms ~w(race racy buffer overflow stack integer signedness widthness underflow
-            improper unauthenticated) ++
-           ["gain access"] ++
-           ~w(permission) ++
-           ["cross site"] ++
-           ~w(css xss htmlspecialchar) ++
-           ["denial service"] ++
-           ~w(dos crash deadlock sql sqli injection format string printf scanf) ++
-           ["request forgery"] ++
-           ~w(csrf xsrf forged security vulnerability vulnerable hole exploit attack
-              bypass backdoor threat expose breach violate fatal blacklist overrun insecure)
-
   @suffixes ["s", "es", "ed", "d", "ing", "er", "ers"]
 
-  token_forms = fn token ->
-    stem_forms =
-      cond do
-        String.ends_with?(token, "e") ->
-          stem = String.slice(token, 0..-2//1)
-          Enum.map(["ing", "ion", "ions"], &(stem <> &1))
-
-        String.ends_with?(token, "y") ->
-          [String.slice(token, 0..-2//1) <> "ies"]
-
-        true ->
-          []
-      end
-
-    [token | Enum.map(@suffixes, &(token <> &1))] ++ stem_forms
+  def terms do
+    ~w(race racy buffer overflow stack integer signedness widthness underflow
+       improper unauthenticated) ++
+      ["gain access"] ++
+      ~w(permission) ++
+      ["cross site"] ++
+      ~w(css xss htmlspecialchar) ++
+      ["denial service"] ++
+      ~w(dos crash deadlock sql sqli injection format string printf scanf) ++
+      ["request forgery"] ++
+      ~w(csrf xsrf forged security vulnerability vulnerable hole exploit attack
+         bypass backdoor threat expose breach violate fatal blacklist overrun insecure)
   end
 
-  @term_forms Enum.map(@terms, fn term ->
-                {term, Enum.map(String.split(term, " "), token_forms)}
-              end)
-
-  def terms, do: @terms
-
   def normalize(text) do
-    text
-    |> Text.scrub()
-    |> String.downcase()
-    |> then(&Regex.replace(~r/[^a-z0-9_]+/, &1, " "))
-    |> String.trim()
+    clean_text = Text.scrub(text)
+    lower_text = String.downcase(clean_text)
+    only_words = Regex.replace(~r/[^a-z0-9_]+/, lower_text, " ")
+    String.trim(only_words)
   end
 
   def match(text) do
-    tokens = text |> normalize() |> String.split(" ", trim: true)
+    normalized = normalize(text)
+    tokens = String.split(normalized, " ", trim: true)
 
-    for {term, forms} <- @term_forms, match_at?(tokens, forms), do: term
+    Enum.filter(terms(), fn term -> term_found?(tokens, term) end)
   end
 
   def hit?(text), do: match(text) != []
+
+  defp term_found?(tokens, term) do
+    words = String.split(term, " ")
+    forms = Enum.map(words, fn word -> token_forms(word) end)
+    match_at?(tokens, forms)
+  end
+
+  defp token_forms(token) do
+    with_suffixes = Enum.map(@suffixes, fn suffix -> token <> suffix end)
+    [token] ++ with_suffixes ++ stem_forms(token)
+  end
+
+  defp stem_forms(token) do
+    stem = String.slice(token, 0..-2//1)
+
+    if String.ends_with?(token, "e") do
+      [stem <> "ing", stem <> "ion", stem <> "ions"]
+    else
+      if String.ends_with?(token, "y") do
+        [stem <> "ies"]
+      else
+        []
+      end
+    end
+  end
 
   defp match_at?([], _forms), do: false
 

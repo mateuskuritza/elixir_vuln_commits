@@ -13,10 +13,12 @@ defmodule Mix.Tasks.Vuln.Collect do
 
   @impl Mix.Task
   def run(_args) do
-    rows = @repos |> Repos.load() |> Repos.active()
+    all_rows = Repos.load(@repos)
+    rows = Repos.active(all_rows)
     Mix.shell().info("repositórios ativos: #{length(rows)}")
 
-    original = @dataset |> Dataset.load() |> Collect.original(rows)
+    dataset = Dataset.load(@dataset)
+    original = Collect.original(dataset, rows)
     Mix.shell().info("período original pronto: #{length(original)} commits")
 
     extended = Collect.extended(rows, @range)
@@ -35,15 +37,21 @@ defmodule Mix.Tasks.Vuln.Collect do
   defp print_period(label, commits) do
     Mix.shell().info("\n== #{label}: #{summary(commits)}")
 
-    commits
-    |> Enum.group_by(& &1.repo)
-    |> Enum.sort()
-    |> Enum.each(fn {repo, group} -> Mix.shell().info("  #{repo}: #{summary(group)}") end)
+    groups = Enum.group_by(commits, fn commit -> commit.repo end)
+    sorted_groups = Enum.sort(groups)
+
+    Enum.each(sorted_groups, fn {repo, group} ->
+      Mix.shell().info("  #{repo}: #{summary(group)}")
+    end)
   end
 
   defp summary(commits) do
-    candidates = Enum.count(commits, &(&1.keyword_hit and not &1.bot))
-    bots = Enum.count(commits, & &1.bot)
+    candidates =
+      Enum.count(commits, fn commit ->
+        commit.keyword_hit and not commit.bot
+      end)
+
+    bots = Enum.count(commits, fn commit -> commit.bot end)
     "#{length(commits)} commits, #{candidates} candidatos, #{bots} bots"
   end
 

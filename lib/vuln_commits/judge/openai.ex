@@ -5,23 +5,23 @@ defmodule VulnCommits.Judge.OpenAI do
   @default_model "gpt-4.1-mini-2025-04-14"
   @default_backoff_ms 500
   @max_attempts 5
-
-  @prices %{
-    "gpt-4.1-mini-2025-04-14" => {0.40, 1.60}
-  }
+  @price_input 0.40
+  @price_output 1.60
 
   def judge(system, user, opts) do
-    case System.get_env("OPENAI_API_KEY") do
-      key when key in [nil, ""] ->
-        {:error, :missing_api_key}
+    key = System.get_env("OPENAI_API_KEY")
 
-      key ->
-        payload = payload(system, user, opts)
-        backoff_ms = Keyword.get(opts, :backoff_ms, @default_backoff_ms)
+    if key == nil or key == "" do
+      {:error, :missing_api_key}
+    else
+      payload = payload(system, user, opts)
+      backoff_ms = Keyword.get(opts, :backoff_ms, @default_backoff_ms)
+      post_once = fn -> post(key, payload) end
 
-        with {:ok, body} <- attempt(fn -> post(key, payload) end, 1, backoff_ms) do
-          read_judgment(body)
-        end
+      case attempt(post_once, 1, backoff_ms) do
+        {:ok, body} -> read_judgment(body)
+        other -> other
+      end
     end
   end
 
@@ -41,14 +41,16 @@ defmodule VulnCommits.Judge.OpenAI do
     }
   end
 
-  defp attempt(fun, n, backoff_ms) do
-    case fun.() do
-      {:retry, _reason} when n < @max_attempts ->
-        Process.sleep(round(:math.pow(2, n - 1) * backoff_ms))
-        attempt(fun, n + 1, backoff_ms)
-
+  defp attempt(post_once, number, backoff_ms) do
+    case post_once.() do
       {:retry, reason} ->
-        {:error, reason}
+        if number < @max_attempts do
+          wait_ms = round(:math.pow(2, number - 1) * backoff_ms)
+          Process.sleep(wait_ms)
+          attempt(post_once, number + 1, backoff_ms)
+        else
+          {:error, reason}
+        end
 
       other ->
         other
@@ -56,19 +58,20 @@ defmodule VulnCommits.Judge.OpenAI do
   end
 
   defp post(key, payload) do
-    options =
-      [json: payload, auth: {:bearer, key}, retry: false, receive_timeout: 60_000] ++
-        Application.get_env(:vuln_commits, :openai_req_options, [])
+    base_options = [json: payload, auth: {:bearer, key}, retry: false, receive_timeout: 60_000]
+    extra_options = Application.get_env(:vuln_commits, :openai_req_options, [])
+    options = base_options ++ extra_options
 
     case Req.post(@url, options) do
       {:ok, %Req.Response{status: 200, body: body}} ->
         {:ok, body}
 
-      {:ok, %Req.Response{status: status, body: body}} when status == 429 or status >= 500 ->
-        {:retry, {:http, status, body}}
-
       {:ok, %Req.Response{status: status, body: body}} ->
-        {:error, {:http, status, body}}
+        if status == 429 or status >= 500 do
+          {:retry, {:http, status, body}}
+        else
+          {:error, {:http, status, body}}
+        end
 
       {:error, reason} ->
         {:retry, reason}
@@ -76,24 +79,32 @@ defmodule VulnCommits.Judge.OpenAI do
   end
 
   defp read_judgment(%{"choices" => [%{"message" => %{"content" => content}} | _]} = body) do
-    judgment(content, Map.get(body, "usage", %{}))
+    usage = Map.get(body, "usage", %{})
+    judgment(content, usage)
   end
 
   defp read_judgment(body), do: {:error, {:bad_json, body}}
 
   defp judgment(content, usage) do
-    with {:ok, %{"label" => label} = raw} <- Jason.decode(content),
-         {:ok, label} <- parse_label(label) do
-      {:ok,
-       %{
-         label: label,
-         cia: raw["cia"],
-         reason: raw["reason"],
-         raw: raw,
-         usage: usage
-       }}
-    else
-      _ -> {:error, {:bad_json, content}}
+    case Jason.decode(content) do
+      {:ok, %{"label" => label_text} = raw} ->
+        case parse_label(label_text) do
+          {:ok, label} ->
+            {:ok,
+             %{
+               label: label,
+               cia: raw["cia"],
+               reason: raw["reason"],
+               raw: raw,
+               usage: usage
+             }}
+
+          :error ->
+            {:error, {:bad_json, content}}
+        end
+
+      _other ->
+        {:error, {:bad_json, content}}
     end
   end
 
@@ -107,12 +118,12 @@ defmodule VulnCommits.Judge.OpenAI do
         avg_output_tokens \\ 80,
         model \\ default_model()
       ) do
-    case Map.fetch(@prices, model) do
-      {:ok, {price_in, price_out}} ->
-        n_calls * (avg_input_tokens * price_in + avg_output_tokens * price_out) / 1_000_000
-
-      :error ->
-        nil
+    if model == @default_model do
+      input_cost = avg_input_tokens * @price_input
+      output_cost = avg_output_tokens * @price_output
+      n_calls * (input_cost + output_cost) / 1_000_000
+    else
+      nil
     end
   end
 

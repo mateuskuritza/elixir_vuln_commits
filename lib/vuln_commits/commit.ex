@@ -17,7 +17,8 @@ defmodule VulnCommits.Commit do
             period: nil
 
   def elixir_file?(path) do
-    elixir_extension?(Path.extname(path))
+    extension = Path.extname(path)
+    elixir_extension?(extension)
   end
 
   defp elixir_extension?(".ex"), do: true

@@ -17,12 +17,14 @@ defmodule Mix.Tasks.Vuln.Judge do
     opts = parse_args(args)
 
     commits = Collect.load(@commits)
-    dirs = @repos |> Repos.load() |> Map.new(&{&1.name, &1.dir})
+    repo_rows = Repos.load(@repos)
+    dirs = Map.new(repo_rows, fn repo -> {repo.name, repo.dir} end)
     candidates = Judge.candidates(commits, opts.period, years: opts.years)
 
     model = OpenAI.model()
     version = Prompt.version()
-    done = @judgments |> Store.load() |> Store.done()
+    records = Store.load(@judgments)
+    done = Store.done(records)
     pairs = Judge.pending(candidates, done, model, version)
     calls = length(pairs)
 
@@ -32,11 +34,10 @@ defmodule Mix.Tasks.Vuln.Judge do
     Mix.shell().info("modelo: #{model}  prompt: #{version}")
     Mix.shell().info("custo estimado: #{cost_text(calls)}")
 
-    cond do
-      opts.dry_run ->
-        Mix.shell().info("dry-run: nenhuma chamada feita")
-
-      should_run?(calls, opts) ->
+    if opts.dry_run do
+      Mix.shell().info("dry-run: nenhuma chamada feita")
+    else
+      if should_run?(calls, opts) do
         if api_key_ok?(System.get_env("OPENAI_API_KEY")) do
           Judge.run(pairs,
             dirs: dirs,
@@ -49,9 +50,9 @@ defmodule Mix.Tasks.Vuln.Judge do
             "OPENAI_API_KEY não definida ou vazia. defina a chave no ambiente (ou no .env) e rode de novo. nada foi julgado."
           )
         end
-
-      true ->
+      else
         Mix.shell().info("mais de #{@confirm_limit} chamadas: rode de novo com --yes")
+      end
     end
   end
 
@@ -80,23 +81,32 @@ defmodule Mix.Tasks.Vuln.Judge do
 
   defp parse_years(text) do
     case String.split(text, "-") do
-      [from, to] -> String.to_integer(from)..String.to_integer(to)
+      [first, last] -> String.to_integer(first)..String.to_integer(last)
       _ -> raise ArgumentError, "use --years AAAA-AAAA (recebido: #{inspect(text)})"
     end
   end
 
   def should_run?(calls, opts) do
-    cond do
-      opts.dry_run -> false
-      calls > @confirm_limit -> opts.yes
-      true -> true
+    if opts.dry_run do
+      false
+    else
+      if calls > @confirm_limit do
+        opts.yes
+      else
+        true
+      end
     end
   end
 
-  def api_key_ok?(key), do: key not in [nil, ""]
+  def api_key_ok?(nil), do: false
+  def api_key_ok?(""), do: false
+  def api_key_ok?(_key), do: true
 
   defp years_text(nil), do: "todos"
-  defp years_text(first..last//_), do: "#{first}-#{last}"
+
+  defp years_text(years) do
+    "#{years.first}-#{years.last}"
+  end
 
   defp cost_text(calls) do
     case OpenAI.estimate_cost(calls) do

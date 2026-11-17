@@ -1,9 +1,22 @@
 defmodule VulnCommits.Repos do
   alias VulnCommits.{Bots, Commit, CSV, Git, GitHub}
 
-  @columns ~w(name owner_repo dir stars archived default_branch head_at_collection
-              hashes_expected hashes_found elixir_commits_2025 elixir_commits_2026
-              last_elixir_commit active collected_at)a
+  @columns [
+    :name,
+    :owner_repo,
+    :dir,
+    :stars,
+    :archived,
+    :default_branch,
+    :head_at_collection,
+    :hashes_expected,
+    :hashes_found,
+    :elixir_commits_2025,
+    :elixir_commits_2026,
+    :last_elixir_commit,
+    :active,
+    :collected_at
+  ]
 
   def active?(commits_2025, commits_2026) do
     length(commits_2025) > 1 or length(commits_2026) >= 1
@@ -11,27 +24,34 @@ defmodule VulnCommits.Repos do
 
   def resolve_all(dataset_commits, opts) do
     opts = with_defaults(opts)
-    by_repo = Enum.group_by(dataset_commits, & &1.repo, & &1.hash)
 
-    Enum.map(Enum.sort(Map.keys(by_repo)), fn name ->
-      resolve(name, Map.fetch!(by_repo, name), opts)
+    hashes_by_repo =
+      Enum.group_by(dataset_commits, fn commit -> commit.repo end, fn commit -> commit.hash end)
+
+    names = Enum.sort(Map.keys(hashes_by_repo))
+
+    Enum.map(names, fn name ->
+      resolve(name, Map.fetch!(hashes_by_repo, name), opts)
     end)
   end
 
   defp with_defaults(opts) do
     clone_dir = Keyword.get(opts, :clone_dir, "repos")
 
-    [
+    defaults = [
       clone_dir: clone_dir,
       repo_map: load_repo_map(),
-      clone_fun: &clone_or_update/2,
-      info_fun: &GitHub.repo_info/1
+      clone_fun: fn owner_repo, dir -> clone_or_update(owner_repo, dir) end,
+      info_fun: fn owner_repo -> GitHub.repo_info(owner_repo) end
     ]
-    |> Keyword.merge(opts)
+
+    Keyword.merge(defaults, opts)
   end
 
   defp load_repo_map do
-    {map, _bindings} = Code.eval_file(Path.join(:code.priv_dir(:vuln_commits), "repo_map.exs"))
+    priv_dir = :code.priv_dir(:vuln_commits)
+    file = Path.join(priv_dir, "repo_map.exs")
+    {map, _bindings} = Code.eval_file(file)
     map
   end
 
@@ -42,7 +62,7 @@ defmodule VulnCommits.Repos do
     info = repo_info(owner_repo, dir, opts[:info_fun])
     ref = branch_ref(dir, info.default_branch)
 
-    missing = Enum.reject(hashes, &Git.object_exists?(dir, &1))
+    missing = Enum.reject(hashes, fn hash -> Git.object_exists?(dir, hash) end)
     warn_missing(name, missing)
 
     commits_2025 = elixir_commits(dir, ref, 2025)
@@ -79,7 +99,12 @@ defmodule VulnCommits.Repos do
 
   defp branch_ref(dir, branch) do
     remote = "origin/" <> branch
-    if Git.object_exists?(dir, remote), do: remote, else: branch
+
+    if Git.object_exists?(dir, remote) do
+      remote
+    else
+      branch
+    end
   end
 
   defp warn_missing(_name, []), do: :ok
@@ -89,7 +114,12 @@ defmodule VulnCommits.Repos do
   end
 
   defp clone_or_update(owner_repo, dir) do
-    result = if File.dir?(dir), do: Git.update(dir), else: Git.clone(owner_repo, dir)
+    result =
+      if File.dir?(dir) do
+        Git.update(dir)
+      else
+        Git.clone(owner_repo, dir)
+      end
 
     case result do
       :ok -> dir
@@ -100,16 +130,24 @@ defmodule VulnCommits.Repos do
   defp elixir_commits(dir, ref, year) do
     range = [since: Date.new!(year, 1, 1), until: Date.new!(year, 12, 31), no_merges: true]
 
-    dir
-    |> Git.log(ref, range)
-    |> Enum.reject(&bot?/1)
-    |> Task.async_stream(&{&1, Git.files(dir, &1.hash)},
-      max_concurrency: System.schedulers_online(),
-      timeout: :infinity
-    )
-    |> Enum.map(fn {:ok, pair} -> pair end)
-    |> Enum.filter(fn {_commit, files} -> Enum.any?(files, &Commit.elixir_file?/1) end)
-    |> Enum.map(fn {commit, _files} -> commit end)
+    log_entries = Git.log(dir, ref, range)
+    human_entries = Enum.reject(log_entries, fn entry -> bot?(entry) end)
+
+    results =
+      Task.async_stream(human_entries, fn entry -> touches_elixir?(dir, entry) end,
+        max_concurrency: System.schedulers_online(),
+        timeout: :infinity
+      )
+
+    flags = Enum.map(results, fn {:ok, flag} -> flag end)
+    pairs = Enum.zip(human_entries, flags)
+    elixir_pairs = Enum.filter(pairs, fn {_entry, flag} -> flag end)
+    Enum.map(elixir_pairs, fn {entry, _flag} -> entry end)
+  end
+
+  defp touches_elixir?(dir, entry) do
+    files = Git.files(dir, entry.hash)
+    Enum.any?(files, fn file -> Commit.elixir_file?(file) end)
   end
 
   defp bot?(commit) do
@@ -117,21 +155,32 @@ defmodule VulnCommits.Repos do
   end
 
   defp last_date([]), do: nil
-  defp last_date(commits), do: commits |> Enum.map(& &1.date) |> Enum.max(Date)
 
-  def active(rows), do: Enum.filter(rows, & &1.active)
-
-  def write(path, rows) do
-    CSV.write(path, Enum.map(@columns, &Atom.to_string/1), Enum.map(rows, &to_csv_row/1))
+  defp last_date(commits) do
+    dates = Enum.map(commits, fn commit -> commit.date end)
+    Enum.max(dates, Date)
   end
 
-  defp to_csv_row(row), do: Enum.map(@columns, &(row |> Map.fetch!(&1) |> to_text()))
+  def active(rows), do: Enum.filter(rows, fn row -> row.active end)
+
+  def write(path, rows) do
+    headers = Enum.map(@columns, fn column -> Atom.to_string(column) end)
+    csv_rows = Enum.map(rows, fn row -> to_csv_row(row) end)
+    CSV.write(path, headers, csv_rows)
+  end
+
+  defp to_csv_row(row) do
+    Enum.map(@columns, fn column -> to_text(Map.fetch!(row, column)) end)
+  end
 
   defp to_text(nil), do: ""
   defp to_text(%Date{} = date), do: Date.to_iso8601(date)
   defp to_text(value), do: to_string(value)
 
-  def load(path), do: path |> CSV.read() |> Enum.map(&from_csv_row/1)
+  def load(path) do
+    rows = CSV.read(path)
+    Enum.map(rows, fn row -> from_csv_row(row) end)
+  end
 
   defp from_csv_row(row) do
     %{

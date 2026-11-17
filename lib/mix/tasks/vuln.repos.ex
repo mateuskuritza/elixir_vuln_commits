@@ -12,22 +12,22 @@ defmodule Mix.Tasks.Vuln.Repos do
   def run(_args) do
     Application.ensure_all_started(:req)
 
-    rows =
-      @dataset
-      |> Dataset.load()
-      |> Repos.resolve_all(today: Date.utc_today())
+    commits = Dataset.load(@dataset)
+    rows = Repos.resolve_all(commits, today: Date.utc_today())
 
     Repos.write(@output, rows)
 
     Mix.shell().info("name  owner_repo  archived  2025  2026  ativo  hashes")
-    Enum.each(rows, &print_row/1)
-    Mix.shell().info("\nativos: #{Enum.count(rows, & &1.active)} de #{length(rows)}")
+    Enum.each(rows, fn row -> print_row(row) end)
+
+    active = Enum.count(rows, fn row -> row.active end)
+    Mix.shell().info("\nativos: #{active} de #{length(rows)}")
   end
 
-  defp print_row(r) do
+  defp print_row(row) do
     Mix.shell().info(
-      "#{r.name}  #{r.owner_repo}  #{r.archived}  #{r.elixir_commits_2025}  " <>
-        "#{r.elixir_commits_2026}  #{r.active}  #{r.hashes_found}/#{r.hashes_expected}"
+      "#{row.name}  #{row.owner_repo}  #{row.archived}  #{row.elixir_commits_2025}  " <>
+        "#{row.elixir_commits_2026}  #{row.active}  #{row.hashes_found}/#{row.hashes_expected}"
     )
   end
 end

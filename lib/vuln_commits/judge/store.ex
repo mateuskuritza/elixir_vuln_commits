@@ -8,29 +8,47 @@ defmodule VulnCommits.Judge.Store do
 
   def load(path) do
     if File.exists?(path) do
-      path
-      |> File.stream!()
-      |> Stream.map(&String.trim/1)
-      |> Stream.reject(&(&1 == ""))
-      |> Enum.map(&Jason.decode!(&1, keys: :atoms))
+      content = File.read!(path)
+      lines = String.split(content, "\n")
+      trimmed = Enum.map(lines, fn line -> String.trim(line) end)
+      not_empty = Enum.filter(trimmed, fn line -> line != "" end)
+      Enum.map(not_empty, fn line -> Jason.decode!(line, keys: :atoms) end)
     else
       []
     end
   end
 
   def done(records) do
-    for %{label: label} = r <- records, label != "ERROR", into: MapSet.new() do
-      {r.hash, r.run, r.model, r.prompt_version}
-    end
+    valid = Enum.filter(records, fn record -> record.label != "ERROR" end)
+
+    keys =
+      Enum.map(valid, fn record ->
+        {record.hash, record.run, record.model, record.prompt_version}
+      end)
+
+    MapSet.new(keys)
   end
 
   def by_commit(records, model, prompt_version) do
-    records
-    |> Enum.filter(&(&1.model == model and &1.prompt_version == prompt_version))
-    |> Enum.reject(&(&1.label == "ERROR"))
-    |> Enum.reduce(%{}, fn r, acc -> Map.put(acc, {r.hash, r.run}, label_atom(r.label)) end)
-    |> Enum.sort_by(fn {{hash, run}, _label} -> {hash, run} end)
-    |> Enum.group_by(fn {{hash, _run}, _label} -> hash end, fn {_key, label} -> label end)
+    same_setup =
+      Enum.filter(records, fn record ->
+        record.model == model and record.prompt_version == prompt_version
+      end)
+
+    valid = Enum.filter(same_setup, fn record -> record.label != "ERROR" end)
+
+    latest_by_key =
+      Map.new(valid, fn record ->
+        {{record.hash, record.run}, label_atom(record.label)}
+      end)
+
+    sorted = Enum.sort_by(latest_by_key, fn {{hash, run}, _label} -> {hash, run} end)
+
+    Enum.group_by(
+      sorted,
+      fn {{hash, _run}, _label} -> hash end,
+      fn {_key, label} -> label end
+    )
   end
 
   defp label_atom("VULNERABLE"), do: :vulnerable

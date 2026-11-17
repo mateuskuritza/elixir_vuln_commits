@@ -29,26 +29,31 @@ defmodule Mix.Tasks.Vuln.Dataset do
     end
   end
 
-  defp print_summary(s) do
+  defp print_summary(summary) do
     Mix.shell().info("""
 
-    commits:               #{s.commits}
-    vulneraveis:           #{s.vulnerable}
-    arquivos:              #{s.files}
-    arquivos em vuln.:     #{s.files_in_vulnerable}
-    repos com vuln.:       #{s.repos_with_vulnerable}
+    commits:               #{summary.commits}
+    vulneraveis:           #{summary.vulnerable}
+    arquivos:              #{summary.files}
+    arquivos em vuln.:     #{summary.files_in_vulnerable}
+    repos com vuln.:       #{summary.repos_with_vulnerable}
     """)
   end
 
   defp print_per_year(per_year) do
     Mix.shell().info("ano   commits  vuln.  proporcao")
 
-    per_year
-    |> Enum.sort()
-    |> Enum.each(fn {year, m} ->
-      Mix.shell().info("#{year}  #{pad(m.commits, 7)}  #{pad(m.vulnerable, 5)}  #{m.proportion}%")
+    sorted = Enum.sort(per_year)
+
+    Enum.each(sorted, fn {year, numbers} ->
+      commits = pad(numbers.commits, 7)
+      vulnerable = pad(numbers.vulnerable, 5)
+      Mix.shell().info("#{year}  #{commits}  #{vulnerable}  #{numbers.proportion}%")
     end)
   end
 
-  defp pad(n, width), do: n |> Integer.to_string() |> String.pad_leading(width)
+  defp pad(number, width) do
+    text = Integer.to_string(number)
+    String.pad_leading(text, width)
+  end
 end

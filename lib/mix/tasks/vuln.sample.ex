@@ -31,32 +31,36 @@ defmodule Mix.Tasks.Vuln.Sample do
 
     Mix.shell().info("candidatos do periodo estendido: #{length(candidates)}")
     Mix.shell().info("amostra: #{length(picked)} commits -> #{@sample}")
-    print_counts("por repo", picked, & &1.repo)
-    print_counts("por ano", picked, & &1.year)
+    print_counts("por repo", picked, fn commit -> commit.repo end)
+    print_counts("por ano", picked, fn commit -> commit.year end)
   end
 
   defp print_counts(title, commits, key_fun) do
     Mix.shell().info("#{title}:")
 
-    commits
-    |> Enum.frequencies_by(key_fun)
-    |> Enum.sort()
-    |> Enum.each(fn {key, count} -> Mix.shell().info("  #{key}: #{count}") end)
+    counts = Enum.frequencies_by(commits, key_fun)
+    sorted = Enum.sort(counts)
+
+    Enum.each(sorted, fn {key, count} ->
+      Mix.shell().info("  #{key}: #{count}")
+    end)
   end
 
   defp import_labels do
     if File.exists?(@labeled) do
       manual = Sample.import(@labeled)
-      hashes = MapSet.new(manual, & &1.hash)
+      hashes = MapSet.new(manual, fn row -> row.hash end)
+
+      commits = Collect.load(@commits)
+      candidates = Judge.candidates(commits, :extended, years: nil)
 
       sampled =
-        @commits
-        |> Collect.load()
-        |> Judge.candidates(:extended, years: nil)
-        |> Enum.filter(&MapSet.member?(hashes, &1.hash))
+        Enum.filter(candidates, fn commit ->
+          MapSet.member?(hashes, commit.hash)
+        end)
 
-      model_labels =
-        Judge.labels(sampled, Store.load(@judgments), Batch.model(), Prompt.version())
+      records = Store.load(@judgments)
+      model_labels = Judge.labels(sampled, records, Batch.model(), Prompt.version())
 
       warn_unjudged(sampled, model_labels)
       result = Sample.agreement(manual, model_labels)
@@ -74,25 +78,25 @@ defmodule Mix.Tasks.Vuln.Sample do
   end
 
   defp warn_unjudged(sampled, labels) do
-    n = Judge.unjudged(sampled, labels)
+    count = Judge.unjudged(sampled, labels)
 
-    if n > 0 do
+    if count > 0 do
       Mix.shell().info(
-        "AVISO: #{n} candidatos com menos de 3 votos válidos; os números de 'nosso' ainda não são finais"
+        "AVISO: #{count} candidatos com menos de 3 votos válidos; os números de 'nosso' ainda não são finais"
       )
     end
   end
 
   defp write_agreement(result) do
-    c = result.confusion
+    confusion = result.confusion
 
     rows = [
       ["kappa", Float.round(result.kappa, 4)],
       ["n", result.n],
-      ["true_pos", c.true_pos],
-      ["false_pos", c.false_pos],
-      ["false_neg", c.false_neg],
-      ["true_neg", c.true_neg]
+      ["true_pos", confusion.true_pos],
+      ["false_pos", confusion.false_pos],
+      ["false_neg", confusion.false_neg],
+      ["true_neg", confusion.true_neg]
     ]
 
     CSV.write(@agreement, ["metric", "value"], rows)

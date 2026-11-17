@@ -1,76 +1,94 @@
 defmodule VulnCommits.Sample do
-  alias VulnCommits.{CSV, Metrics}
+  alias VulnCommits.CSV
+  alias VulnCommits.Metrics
   alias VulnCommits.Judge.Prompt
 
-  @columns ~w(repo hash url date message elixir_files diff_excerpt label cia notes)
+  @columns [
+    "repo",
+    "hash",
+    "url",
+    "date",
+    "message",
+    "elixir_files",
+    "diff_excerpt",
+    "label",
+    "cia",
+    "notes"
+  ]
   @excerpt_bytes 3000
   @default_seed {20_261_021, 1, 2}
 
   def pick(candidates, opts \\ []) do
     n = Keyword.get(opts, :n, 80)
-    :rand.seed(:exsss, Keyword.get(opts, :seed, @default_seed))
+    seed = Keyword.get(opts, :seed, @default_seed)
+    :rand.seed(:exsss, seed)
 
-    strata =
-      candidates
-      |> Enum.group_by(&{&1.repo, &1.year})
-      |> Enum.sort_by(fn {key, _commits} -> key end)
+    groups = Enum.group_by(candidates, fn commit -> {commit.repo, commit.year} end)
+    strata = Enum.sort_by(groups, fn {key, _commits} -> key end)
 
     quotas = allocate(strata, n)
+    numbered_strata = Enum.with_index(strata)
 
-    strata
-    |> Enum.with_index()
-    |> Enum.flat_map(fn {{_key, commits}, i} ->
-      commits
-      |> Enum.sort_by(& &1.hash)
-      |> Enum.shuffle()
-      |> Enum.take(Map.fetch!(quotas, i))
-    end)
-    |> sort()
+    chosen =
+      Enum.flat_map(numbered_strata, fn {{_key, commits}, index} ->
+        by_hash = Enum.sort_by(commits, fn commit -> commit.hash end)
+        shuffled = Enum.shuffle(by_hash)
+        Enum.take(shuffled, Map.fetch!(quotas, index))
+      end)
+
+    sort(chosen)
   end
 
   defp allocate(strata, n) do
-    total = strata |> Enum.map(fn {_key, commits} -> length(commits) end) |> Enum.sum()
+    sizes = Enum.map(strata, fn {_key, commits} -> length(commits) end)
+    total = Enum.sum(sizes)
+    numbered_strata = Enum.with_index(strata)
 
     rows =
-      strata
-      |> Enum.with_index()
-      |> Enum.map(fn {{_key, commits}, i} ->
+      Enum.map(numbered_strata, fn {{_key, commits}, index} ->
         share = n * length(commits)
-        %{i: i, floor: div(share, total), rem: rem(share, total)}
+        %{index: index, floor: div(share, total), rest: rem(share, total)}
       end)
 
-    leftover = n - Enum.sum(Enum.map(rows, & &1.floor))
+    floors = Enum.map(rows, fn row -> row.floor end)
+    leftover = n - Enum.sum(floors)
 
-    winners =
-      rows
-      |> Enum.sort_by(&{-&1.rem, &1.i})
-      |> Enum.take(leftover)
-      |> MapSet.new(& &1.i)
+    largest_rest_first = Enum.sort_by(rows, fn row -> {-row.rest, row.index} end)
+    winner_rows = Enum.take(largest_rest_first, leftover)
+    winners = Enum.map(winner_rows, fn row -> row.index end)
 
     Map.new(rows, fn row ->
-      extra = if MapSet.member?(winners, row.i), do: 1, else: 0
-      {row.i, row.floor + extra}
+      if row.index in winners do
+        {row.index, row.floor + 1}
+      else
+        {row.index, row.floor}
+      end
     end)
   end
 
   defp sort(commits) do
-    Enum.sort_by(commits, &{&1.repo, Date.to_iso8601(&1.date), &1.hash})
+    Enum.sort_by(commits, fn commit ->
+      {commit.repo, Date.to_iso8601(commit.date), commit.hash}
+    end)
   end
 
   def export(commits, repo_rows, path) do
-    dirs = Map.new(repo_rows, &{&1.name, &1.dir})
-    owners = Map.new(repo_rows, &{&1.name, &1.owner_repo})
+    dirs = Map.new(repo_rows, fn repo -> {repo.name, repo.dir} end)
+    owners = Map.new(repo_rows, fn repo -> {repo.name, repo.owner_repo} end)
 
     rows =
-      Enum.map(commits, fn c ->
+      Enum.map(commits, fn commit ->
+        owner_repo = Map.fetch!(owners, commit.repo)
+        dir = Map.fetch!(dirs, commit.repo)
+
         [
-          c.repo,
-          c.hash,
-          "https://github.com/#{Map.fetch!(owners, c.repo)}/commit/#{c.hash}",
-          Date.to_iso8601(c.date),
-          c.message,
-          Enum.join(c.elixir_files, "|"),
-          excerpt(c, Map.fetch!(dirs, c.repo)),
+          commit.repo,
+          commit.hash,
+          "https://github.com/#{owner_repo}/commit/#{commit.hash}",
+          Date.to_iso8601(commit.date),
+          commit.message,
+          Enum.join(commit.elixir_files, "|"),
+          excerpt(commit, dir),
           "",
           "",
           ""
@@ -81,13 +99,15 @@ defmodule VulnCommits.Sample do
   end
 
   defp excerpt(commit, dir) do
-    commit |> Prompt.diff_for(dir) |> Prompt.truncate(@excerpt_bytes)
+    diff = Prompt.diff_for(commit, dir)
+    Prompt.truncate(diff, @excerpt_bytes)
   end
 
   def import(path) do
     rows = CSV.read(path)
 
-    bad = for row <- rows, parse_label(row["label"]) == :error, do: row["hash"]
+    bad_rows = Enum.filter(rows, fn row -> parse_label(row["label"]) == :error end)
+    bad = Enum.map(bad_rows, fn row -> row["hash"] end)
 
     if bad != [] do
       raise ArgumentError,
@@ -102,7 +122,9 @@ defmodule VulnCommits.Sample do
   defp parse_label(nil), do: :error
 
   defp parse_label(text) do
-    case text |> String.trim() |> String.upcase() do
+    clean = String.upcase(String.trim(text))
+
+    case clean do
       "VULNERABLE" -> :vulnerable
       "NEUTRAL" -> :neutral
       _ -> :error
@@ -110,10 +132,20 @@ defmodule VulnCommits.Sample do
   end
 
   defp blank_to_nil(nil), do: nil
-  defp blank_to_nil(text), do: if(String.trim(text) == "", do: nil, else: text)
+
+  defp blank_to_nil(text) do
+    if String.trim(text) == "" do
+      nil
+    else
+      text
+    end
+  end
 
   def agreement(manual, model_labels) do
-    pairs = Enum.map(manual, &{&1.label, model_final(model_labels, &1.hash)})
+    pairs =
+      Enum.map(manual, fn row ->
+        {row.label, model_final(model_labels, row.hash)}
+      end)
 
     %{
       kappa: Metrics.cohen_kappa(pairs),

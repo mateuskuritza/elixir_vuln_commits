@@ -14,24 +14,39 @@ defmodule Mix.Tasks.Vuln.Agents do
   def run(["export" | args]) do
     opts = parse(args)
     commits = Collect.load(@commits)
-    dirs = @repos |> Repos.load() |> Map.new(&{&1.name, &1.dir})
+    repo_rows = Repos.load(@repos)
+    dirs = Map.new(repo_rows, fn repo -> {repo.name, repo.dir} end)
     version = Prompt.version()
-    done = @judgments |> Store.load() |> Store.done()
+    model = Batch.model()
+    records = Store.load(@judgments)
+    done = Store.done(records)
+
+    candidates = Judge.candidates(commits, opts.period, years: opts.years)
 
     pending =
-      commits
-      |> Judge.candidates(opts.period, years: opts.years)
-      |> Enum.reject(&MapSet.member?(done, {&1.hash, opts.run, Batch.model(), version}))
+      Enum.reject(candidates, fn commit ->
+        MapSet.member?(done, {commit.hash, opts.run, model, version})
+      end)
+
+    diff_fun = fn commit ->
+      dir = Map.fetch!(dirs, commit.repo)
+      Prompt.diff_for(commit, dir)
+    end
 
     batches =
       Batch.export(pending, opts.out,
         batch_size: opts.batch_size,
         version: version,
-        diff_fun: &Prompt.diff_for(&1, Map.fetch!(dirs, &1.repo))
+        diff_fun: diff_fun
       )
 
-    index = Enum.map(batches, &%{path: &1.path, hashes: &1.hashes})
-    File.write!(Path.join(opts.out, "index.json"), Jason.encode!(index, pretty: true))
+    index =
+      Enum.map(batches, fn batch ->
+        %{path: batch.path, hashes: batch.hashes}
+      end)
+
+    index_path = Path.join(opts.out, "index.json")
+    File.write!(index_path, Jason.encode!(index, pretty: true))
 
     Mix.shell().info(
       "#{length(pending)} commits pendentes em #{length(batches)} lotes em #{opts.out}"
@@ -40,33 +55,46 @@ defmodule Mix.Tasks.Vuln.Agents do
 
   def run(["import" | args]) do
     opts = parse(args)
-    commits = @commits |> Collect.load() |> Map.new(&{&1.hash, &1})
-    index = opts.out |> Path.join("index.json") |> File.read!() |> Jason.decode!()
+    all_commits = Collect.load(@commits)
+    commits = Map.new(all_commits, fn commit -> {commit.hash, commit} end)
+    index_path = Path.join(opts.out, "index.json")
+    index = Jason.decode!(File.read!(index_path))
 
     Enum.each(index, fn %{"path" => path, "hashes" => hashes} ->
-      answer = String.replace_suffix(path, ".md", ".out.jsonl")
-
-      with false <- File.exists?(answer <> ".imported"),
-           true <- File.exists?(answer),
-           {:ok, judgments} <- Batch.parse(File.read!(answer), hashes) do
-        Batch.store(judgments, commits, @judgments,
-          run: opts.run,
-          model: Batch.model(),
-          version: Prompt.version()
-        )
-
-        File.rename!(answer, answer <> ".imported")
-        Mix.shell().info("importado #{answer} (#{length(judgments)})")
-      else
-        true -> :ok
-        false -> Mix.shell().info("sem resposta ainda: #{answer}")
-        {:error, why} -> Mix.shell().error("resposta inválida em #{answer}: #{inspect(why)}")
-      end
+      import_batch(path, hashes, commits, opts)
     end)
   end
 
+  defp import_batch(path, hashes, commits, opts) do
+    answer = String.replace_suffix(path, ".md", ".out.jsonl")
+    imported = answer <> ".imported"
+
+    if File.exists?(imported) do
+      :ok
+    else
+      if File.exists?(answer) do
+        case Batch.parse(File.read!(answer), hashes) do
+          {:ok, judgments} ->
+            Batch.store(judgments, commits, @judgments,
+              run: opts.run,
+              model: Batch.model(),
+              version: Prompt.version()
+            )
+
+            File.rename!(answer, imported)
+            Mix.shell().info("importado #{answer} (#{length(judgments)})")
+
+          {:error, why} ->
+            Mix.shell().error("resposta inválida em #{answer}: #{inspect(why)}")
+        end
+      else
+        Mix.shell().info("sem resposta ainda: #{answer}")
+      end
+    end
+  end
+
   defp parse(args) do
-    {p, _, _} =
+    {parsed, _rest, _invalid} =
       OptionParser.parse(args,
         strict: [
           period: :string,
@@ -78,18 +106,21 @@ defmodule Mix.Tasks.Vuln.Agents do
       )
 
     %{
-      period: if(p[:period], do: String.to_existing_atom(p[:period])),
-      years: years(p[:years]),
-      run: Keyword.fetch!(p, :run),
-      out: Keyword.fetch!(p, :out),
-      batch_size: Keyword.get(p, :batch_size, 20)
+      period: period(parsed[:period]),
+      years: years(parsed[:years]),
+      run: Keyword.fetch!(parsed, :run),
+      out: Keyword.fetch!(parsed, :out),
+      batch_size: Keyword.get(parsed, :batch_size, 20)
     }
   end
+
+  defp period(nil), do: nil
+  defp period(text), do: String.to_existing_atom(text)
 
   defp years(nil), do: nil
 
   defp years(text) do
-    [a, b] = text |> String.split("-") |> Enum.map(&String.to_integer/1)
-    a..b
+    [first, last] = String.split(text, "-")
+    String.to_integer(first)..String.to_integer(last)
   end
 end

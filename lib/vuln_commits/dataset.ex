@@ -2,15 +2,15 @@ defmodule VulnCommits.Dataset do
   alias VulnCommits.{Commit, CSV, Metrics}
 
   def load(path) do
-    path
-    |> CSV.read()
-    |> Enum.group_by(& &1["HASH"])
-    |> Enum.map(fn {_hash, rows} -> build_commit(rows) end)
-    |> Enum.sort_by(&{&1.date, &1.hash})
+    rows = CSV.read(path)
+    rows_by_hash = Enum.group_by(rows, fn row -> row["HASH"] end)
+    commits = Enum.map(rows_by_hash, fn {_hash, commit_rows} -> build_commit(commit_rows) end)
+    Enum.sort_by(commits, fn commit -> {commit.date, commit.hash} end)
   end
 
   defp build_commit([first | _] = rows) do
-    files = rows |> Enum.map(&relative_path/1) |> Enum.sort()
+    paths = Enum.map(rows, fn row -> relative_path(row) end)
+    files = Enum.sort(paths)
     date = parse_date(first["TIMESTAMP"])
 
     %Commit{
@@ -31,47 +31,61 @@ defmodule VulnCommits.Dataset do
   end
 
   defp parse_date(timestamp) do
-    timestamp |> String.slice(0, 10) |> Date.from_iso8601!()
+    day = String.slice(timestamp, 0, 10)
+    Date.from_iso8601!(day)
   end
 
   defp label("VULNERABLE"), do: :vulnerable
   defp label("NEUTRAL"), do: :neutral
 
   def summary(commits) do
-    vulnerable = Enum.filter(commits, &(&1.human_label == :vulnerable))
+    vulnerable = Enum.filter(commits, fn commit -> commit.human_label == :vulnerable end)
+    vulnerable_repos = Enum.map(vulnerable, fn commit -> commit.repo end)
+    unique_vulnerable_repos = Enum.uniq(vulnerable_repos)
 
     %{
       commits: length(commits),
       vulnerable: length(vulnerable),
       files: count_files(commits),
       files_in_vulnerable: count_files(vulnerable),
-      repos_with_vulnerable: vulnerable |> Enum.map(& &1.repo) |> Enum.uniq() |> length()
+      repos_with_vulnerable: length(unique_vulnerable_repos)
     }
   end
 
   defp count_files(commits) do
-    commits
-    |> Enum.flat_map(fn c -> Enum.map(c.files, &{c.repo, &1}) end)
-    |> Enum.uniq()
-    |> length()
+    repo_files = Enum.flat_map(commits, fn commit -> files_with_repo(commit) end)
+    unique_files = Enum.uniq(repo_files)
+    length(unique_files)
+  end
+
+  defp files_with_repo(commit) do
+    Enum.map(commit.files, fn file -> {commit.repo, file} end)
   end
 
   def per_year(commits) do
-    commits
-    |> Enum.group_by(&Commit.year_of/1)
-    |> Map.new(fn {year, group} ->
-      vulnerable = Enum.count(group, &(&1.human_label == :vulnerable))
+    commits_by_year = Enum.group_by(commits, fn commit -> Commit.year_of(commit) end)
 
-      {year,
-       %{
-         commits: length(group),
-         vulnerable: vulnerable,
-         proportion: Metrics.proportion(vulnerable, length(group))
-       }}
+    Map.new(commits_by_year, fn {year, year_commits} ->
+      {year, year_stats(year_commits)}
     end)
   end
 
+  defp year_stats(year_commits) do
+    total = length(year_commits)
+
+    vulnerable =
+      Enum.count(year_commits, fn commit -> commit.human_label == :vulnerable end)
+
+    %{
+      commits: total,
+      vulnerable: vulnerable,
+      proportion: Metrics.proportion(vulnerable, total)
+    }
+  end
+
   def repo_names(commits) do
-    commits |> Enum.map(& &1.repo) |> Enum.uniq() |> Enum.sort()
+    names = Enum.map(commits, fn commit -> commit.repo end)
+    unique_names = Enum.uniq(names)
+    Enum.sort(unique_names)
   end
 end

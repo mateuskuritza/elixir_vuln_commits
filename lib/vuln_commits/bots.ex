@@ -15,8 +15,10 @@ defmodule VulnCommits.Bots do
   defp normalize(text), do: String.downcase(text)
 
   defp bot_text?(text) do
-    Enum.any?(@names, &String.contains?(text, &1)) or
-      String.ends_with?(text, "[bot]") or
-      Regex.match?(@noreply, text)
+    has_bot_name = Enum.any?(@names, fn name -> String.contains?(text, name) end)
+    ends_with_bot = String.ends_with?(text, "[bot]")
+    is_noreply_bot = Regex.match?(@noreply, text)
+
+    has_bot_name or ends_with_bot or is_noreply_bot
   end
 end

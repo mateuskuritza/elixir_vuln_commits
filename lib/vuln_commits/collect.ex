@@ -23,12 +23,15 @@ defmodule VulnCommits.Collect do
   defp with_year(commit), do: %{commit | year: Commit.year_of(commit)}
 
   def original(dataset_commits, repo_rows) do
-    dirs = Map.new(repo_rows, &{&1.name, &1.dir})
+    dirs = Map.new(repo_rows, fn row -> {row.name, row.dir} end)
 
-    dataset_commits
-    |> Enum.filter(&Map.has_key?(dirs, &1.repo))
-    |> Enum.map(&from_git(&1, Map.fetch!(dirs, &1.repo)))
-    |> Enum.map(&enrich/1)
+    known_commits =
+      Enum.filter(dataset_commits, fn commit -> Map.has_key?(dirs, commit.repo) end)
+
+    git_commits =
+      Enum.map(known_commits, fn commit -> from_git(commit, Map.fetch!(dirs, commit.repo)) end)
+
+    Enum.map(git_commits, fn commit -> enrich(commit) end)
   end
 
   defp from_git(commit, dir) do
@@ -48,19 +51,25 @@ defmodule VulnCommits.Collect do
   end
 
   def extended(repo_rows, opts) do
-    Enum.flat_map(repo_rows, &extended_repo(&1, opts))
+    Enum.flat_map(repo_rows, fn row -> extended_repo(row, opts) end)
   end
 
   defp extended_repo(row, opts) do
-    log_opts = [since: Keyword.fetch!(opts, :since), until: Keyword.fetch!(opts, :until)]
+    since = Keyword.fetch!(opts, :since)
+    until = Keyword.fetch!(opts, :until)
     ref = branch_ref(row.dir, row.default_branch)
 
-    row.dir
-    |> Git.log(ref, [no_merges: true] ++ log_opts)
-    |> Task.async_stream(&fetch_files(&1, row), max_concurrency: 4, timeout: :infinity)
-    |> Enum.map(fn {:ok, commit} -> commit end)
-    |> Enum.reject(&(&1.elixir_files == []))
-    |> Enum.map(&enrich/1)
+    log_entries = Git.log(row.dir, ref, no_merges: true, since: since, until: until)
+
+    results =
+      Task.async_stream(log_entries, fn entry -> fetch_files(entry, row) end,
+        max_concurrency: 4,
+        timeout: :infinity
+      )
+
+    commits = Enum.map(results, fn {:ok, commit} -> commit end)
+    elixir_commits = Enum.reject(commits, fn commit -> commit.elixir_files == [] end)
+    Enum.map(elixir_commits, fn commit -> enrich(commit) end)
   end
 
   defp fetch_files(log_entry, row) do
@@ -74,7 +83,7 @@ defmodule VulnCommits.Collect do
       author_email: log_entry.author_email,
       message: log_entry.message,
       files: files,
-      elixir_files: Enum.filter(files, &Commit.elixir_file?/1),
+      elixir_files: Enum.filter(files, fn file -> Commit.elixir_file?(file) end),
       merge?: log_entry.merge?,
       period: :extended,
       human_label: nil
@@ -82,60 +91,80 @@ defmodule VulnCommits.Collect do
   end
 
   def merges_excluded(row, opts) do
+    since = Keyword.fetch!(opts, :since)
+    until = Keyword.fetch!(opts, :until)
     ref = branch_ref(row.dir, row.default_branch)
-    range = [since: Keyword.fetch!(opts, :since), until: Keyword.fetch!(opts, :until)]
 
-    all = Git.log(row.dir, ref, [no_merges: false] ++ range)
-    plain = Git.log(row.dir, ref, [no_merges: true] ++ range)
+    all = Git.log(row.dir, ref, no_merges: false, since: since, until: until)
+    plain = Git.log(row.dir, ref, no_merges: true, since: since, until: until)
     length(all) - length(plain)
   end
 
   defp branch_ref(dir, branch) do
     remote = "origin/" <> branch
-    if Git.object_exists?(dir, remote), do: remote, else: branch
+
+    if Git.object_exists?(dir, remote) do
+      remote
+    else
+      branch
+    end
   end
 
   def repo_markers(repo_rows) do
-    for row <- repo_rows,
-        file <- AiMarkers.repo_files(),
-        first_added = Git.first_added(row.dir, file),
-        do: %{repo: row.name, file: file, first_added: first_added}
+    Enum.flat_map(repo_rows, fn row -> markers_of_repo(row) end)
+  end
+
+  defp markers_of_repo(row) do
+    found =
+      Enum.map(AiMarkers.repo_files(), fn file ->
+        %{repo: row.name, file: file, first_added: Git.first_added(row.dir, file)}
+      end)
+
+    Enum.filter(found, fn marker -> marker.first_added != nil end)
   end
 
   def write_markers(markers, path) do
-    rows = Enum.map(markers, &[&1.repo, &1.file, Date.to_iso8601(&1.first_added)])
+    rows =
+      Enum.map(markers, fn marker ->
+        [marker.repo, marker.file, Date.to_iso8601(marker.first_added)]
+      end)
+
     CSV.write(path, @marker_columns, rows)
   end
 
   def write(commits, path) do
-    CSV.write(path, @columns, Enum.map(commits, &to_row/1))
+    rows = Enum.map(commits, fn commit -> to_row(commit) end)
+    CSV.write(path, @columns, rows)
   end
 
-  defp to_row(c) do
+  defp to_row(commit) do
     [
-      to_text(c.period),
-      c.repo,
-      c.hash,
-      Date.to_iso8601(c.date),
-      to_string(c.year),
-      to_text(c.author_name),
-      to_text(c.author_email),
-      to_string(c.merge?),
-      to_string(c.keyword_hit),
-      Enum.join(c.keywords, "|"),
-      to_string(c.bot),
-      Enum.join(c.ai_markers, "|"),
-      to_text(c.human_label),
-      Enum.join(c.files, "|"),
-      Enum.join(c.elixir_files, "|"),
-      to_text(c.message)
+      to_text(commit.period),
+      commit.repo,
+      commit.hash,
+      Date.to_iso8601(commit.date),
+      to_string(commit.year),
+      to_text(commit.author_name),
+      to_text(commit.author_email),
+      to_string(commit.merge?),
+      to_string(commit.keyword_hit),
+      Enum.join(commit.keywords, "|"),
+      to_string(commit.bot),
+      Enum.join(commit.ai_markers, "|"),
+      to_text(commit.human_label),
+      Enum.join(commit.files, "|"),
+      Enum.join(commit.elixir_files, "|"),
+      to_text(commit.message)
     ]
   end
 
   defp to_text(nil), do: ""
   defp to_text(value), do: to_string(value)
 
-  def load(path), do: path |> CSV.read() |> Enum.map(&from_row/1)
+  def load(path) do
+    rows = CSV.read(path)
+    Enum.map(rows, fn row -> from_row(row) end)
+  end
 
   defp from_row(row) do
     %Commit{
