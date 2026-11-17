@@ -1,64 +1,89 @@
 defmodule VulnCommits.VolumeTest do
   use ExUnit.Case, async: true
 
-  alias VulnCommits.{Commit, Volume}
+  alias VulnCommits.Volume
 
-  defp commit(hash, opts) do
-    %Commit{
+  defp row(hash, opts) do
+    year = Keyword.get(opts, :year, 2024)
+
+    %{
       repo: Keyword.get(opts, :repo, "r1"),
       hash: hash,
-      year: Keyword.get(opts, :year, 2024),
+      date: Keyword.get(opts, :date, Date.new!(year, 6, 1)),
+      year: year,
       author_email: Keyword.get(opts, :email, "a@example.com"),
-      elixir_files: Keyword.get(opts, :files, ["lib/a.ex"]),
       bot: Keyword.get(opts, :bot, false),
-      period: :extended
+      files: Keyword.get(opts, :files, 1),
+      added: Keyword.get(opts, :added, 0),
+      deleted: Keyword.get(opts, :deleted, 0)
     }
   end
 
-  defp lines(pairs) do
-    Map.new(pairs, fn {hash, added, deleted} -> {hash, %{added: added, deleted: deleted}} end)
-  end
-
-  test "collect soma só as linhas de arquivos Elixir" do
-    numstat = fn "dir/r1", "a" ->
-      [
-        %{path: "lib/a.ex", added: 5, deleted: 2},
-        %{path: "test/a_test.exs", added: 3, deleted: 0},
-        %{path: "README.md", added: 40, deleted: 40}
-      ]
+  describe "collect/2 no repositório de teste" do
+    setup do
+      fx = FixtureRepo.create!()
+      on_exit(fn -> File.rm_rf(fx.dir) end)
+      fx
     end
 
-    rows = Volume.collect([commit("a", [])], %{"r1" => "dir/r1"}, numstat)
+    test "mede os commits com arquivo Elixir, sem merges", fx do
+      repo = %{name: "fixture", dir: fx.dir, default_branch: "main"}
+      rows = Volume.collect([repo], since: ~D[2020-01-01], until: ~D[2025-12-31])
+      by_hash = Map.new(rows, &{&1.hash, &1})
 
-    assert rows == [%{repo: "r1", hash: "a", added: 8, deleted: 2}]
+      assert Enum.sort(Map.keys(by_hash)) == Enum.sort([fx.a, fx.b, fx.e, fx.f, fx.h])
+
+      assert by_hash[fx.b] == %{
+               repo: "fixture",
+               hash: fx.b,
+               date: ~D[2021-03-02],
+               year: 2021,
+               author_email: "fulano@example.com",
+               bot: false,
+               files: 1,
+               added: 1,
+               deleted: 0
+             }
+    end
   end
 
-  test "write e load guardam as linhas por hash" do
-    path = Path.join(System.tmp_dir!(), "volume_#{System.unique_integer([:positive])}.csv")
-    on_exit(fn -> File.rm(path) end)
-
-    Volume.write([%{repo: "r1", hash: "a", added: 8, deleted: 2}], path)
-
-    assert Volume.load(path) == %{"a" => %{added: 8, deleted: 2}}
-  end
-
-  test "per_year tem uma linha por ano de 2021 a 2025 e ignora bots" do
-    commits = [
-      commit("a", files: ["x.ex"], email: "a@example.com"),
-      commit("b", files: ["x.ex", "y.ex", "z.ex"], email: "b@example.com"),
-      commit("c", files: Enum.map(1..10, &"f#{&1}.ex"), email: "a@example.com"),
-      commit("d", bot: true, files: ["x.ex"])
+  test "lines_of soma só as linhas de arquivos Elixir" do
+    numstat = [
+      %{path: "lib/a.ex", added: 5, deleted: 2},
+      %{path: "test/a_test.exs", added: 3, deleted: 0},
+      %{path: "README.md", added: 40, deleted: 40}
     ]
 
-    volume = lines([{"a", 4, 1}, {"b", 10, 0}, {"c", 100, 50}, {"d", 999, 999}])
-    rows = Volume.per_year(commits, volume)
-    y2024 = Enum.find(rows, &(&1.year == 2024))
+    assert Volume.lines_of(numstat) == %{files: 2, added: 8, deleted: 2}
+  end
 
-    assert Enum.map(rows, & &1.year) == Enum.to_list(2021..2025)
+  test "write e load guardam uma linha por commit" do
+    path = Path.join(System.tmp_dir!(), "volume_#{System.unique_integer([:positive])}.csv")
+    on_exit(fn -> File.rm(path) end)
+    rows = [row("a", added: 8, deleted: 2, files: 3, date: ~D[2024-02-03])]
 
-    assert y2024 == %{
+    Volume.write(rows, path)
+
+    assert Volume.load(path) == rows
+    assert Volume.by_hash(rows)["a"].added == 8
+  end
+
+  test "per_year tem uma linha por ano pedido e ignora bots" do
+    rows = [
+      row("a", files: 1, added: 4, deleted: 1, email: "a@example.com"),
+      row("b", files: 3, added: 10, email: "b@example.com", repo: "r2"),
+      row("c", files: 10, added: 100, deleted: 50, email: "a@example.com"),
+      row("d", bot: true, files: 1, added: 999, deleted: 999)
+    ]
+
+    result = Volume.per_year(rows, [2023, 2024])
+
+    assert Enum.map(result, & &1.year) == [2023, 2024]
+
+    assert Enum.find(result, &(&1.year == 2024)) == %{
              year: 2024,
              commits: 3,
+             repos: 2,
              authors: 2,
              files: 14,
              files_per_commit: 4.67,
@@ -68,33 +93,40 @@ defmodule VulnCommits.VolumeTest do
              deleted: 51
            }
 
-    assert Enum.find(rows, &(&1.year == 2021)).commits == 0
-    assert Enum.find(rows, &(&1.year == 2021)).files_per_commit == 0.0
+    assert Enum.find(result, &(&1.year == 2023)).commits == 0
+    assert Enum.find(result, &(&1.year == 2023)).files_per_commit == 0.0
   end
 
   test "per_repo separa por repositório e ano" do
-    commits = [commit("a", repo: "r1", year: 2021), commit("b", repo: "r2", year: 2025)]
-    rows = Volume.per_repo(commits, lines([{"a", 1, 0}, {"b", 7, 3}]))
+    rows = [
+      row("a", repo: "r1", year: 2021, added: 1),
+      row("b", repo: "r2", year: 2025, added: 7)
+    ]
 
-    assert length(rows) == 10
-    assert Enum.find(rows, &(&1.repo == "r2" and &1.year == 2025)).added == 7
-    assert Enum.find(rows, &(&1.repo == "r2" and &1.year == 2021)).commits == 0
+    result = Volume.per_repo(rows, Enum.to_list(2021..2025))
+
+    assert length(result) == 10
+    assert Enum.find(result, &(&1.repo == "r2" and &1.year == 2025)).added == 7
+    assert Enum.find(result, &(&1.repo == "r2" and &1.year == 2021)).commits == 0
   end
 
   test "per_quarter agrupa pelo trimestre da data" do
-    january = %{commit("a", []) | date: ~D[2024-01-15]}
-    december = %{commit("b", []) | date: ~D[2024-12-31]}
-    rows = Volume.per_quarter([december, january], lines([{"a", 1, 0}, {"b", 7, 3}]))
+    rows = [
+      row("b", date: ~D[2024-12-31], added: 7),
+      row("a", date: ~D[2024-01-15], added: 1)
+    ]
 
-    assert Enum.map(rows, & &1.quarter) == ["2024T1", "2024T4"]
-    assert Enum.map(rows, & &1.added) == [1, 7]
+    result = Volume.per_quarter(rows)
+
+    assert Enum.map(result, & &1.quarter) == ["2024T1", "2024T4"]
+    assert Enum.map(result, & &1.added) == [1, 7]
   end
 
   test "without_repo tira um repositório da conta" do
-    commits = [commit("a", repo: "r1"), commit("b", repo: "r2")]
-    rows = Volume.without_repo(commits, lines([{"a", 1, 0}, {"b", 7, 3}]), "r2")
+    rows = [row("a", repo: "r1", added: 1), row("b", repo: "r2", added: 7)]
+    result = Volume.without_repo(rows, "r2", [2024])
 
-    assert Enum.find(rows, &(&1.year == 2024)).added == 1
+    assert hd(result).added == 1
   end
 
   test "median com número par e ímpar de valores" do

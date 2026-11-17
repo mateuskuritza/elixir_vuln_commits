@@ -34,7 +34,7 @@ mix vuln.dataset  ->  vuln.repos  ->  vuln.collect  ->  vuln.volume  ->  vuln.sa
 | `mix vuln.dataset` | download do figshare (só se o arquivo não existe) | `data/figshare/ELIXIR_FINAL_SECURITY_BUG_DATASET.csv`; imprime o resumo do dataset |
 | `mix vuln.repos` | o CSV do figshare, o GitHub e `priv/repo_map.exs` | clones em `repos/<nome>` e `data/repos.csv` (qual repositório segue ativo) |
 | `mix vuln.collect` | `data/repos.csv`, o CSV do figshare e os clones | `data/commits.csv` (período original e estendido) e `data/repo_markers.csv` |
-| `mix vuln.volume` | `data/commits.csv`, `data/repos.csv` e os clones | `data/volume.csv` (linhas Elixir adicionadas e removidas em cada commit de 2021 a 2025) |
+| `mix vuln.volume` | `data/repos.csv` e os clones | `data/volume.csv` (arquivos e linhas Elixir de cada commit da branch padrão, de 2012 a 2025) |
 | `mix vuln.sample export` | `data/commits.csv`, `data/repos.csv` e os clones | `data/sample_80.csv`, a planilha de 80 commits para rotular à mão |
 | `mix vuln.judge --period original --years 2012-2016` | `data/commits.csv`, os clones e a API da OpenAI | acrescenta linhas em `data/judgments.jsonl` (conjunto de desenvolvimento) |
 | `mix vuln.judge --period original --years 2017-2020` | idem | idem (conjunto de avaliação) |
@@ -58,7 +58,7 @@ Observações:
 | `repos.csv` | um repositório por linha: estrelas, se foi arquivado, branch padrão, hashes esperados e achados, commits Elixir em 2025 e 2026 e se segue ativo |
 | `commits.csv` | um commit por linha, dos dois períodos (`original` e `extended`): data, ano, autor, `keyword_hit`, termos casados, `bot`, marcadores de IA, rótulo humano, arquivos e mensagem |
 | `repo_markers.csv` | arquivos de instrução para agentes de IA (`AGENTS.md`, `CLAUDE.md` etc.) encontrados no histórico de cada repositório, com a data em que apareceram |
-| `volume.csv` | um commit do período estendido por linha, com as linhas adicionadas e removidas em arquivos Elixir (`git show --numstat -M`; arquivo renomeado só conta as linhas alteradas). Criado por `vuln.volume` |
+| `volume.csv` | um commit por linha, com todo o histórico da branch padrão dos repositórios ativos de 2012 a 2025 (sem merges, só commits com arquivo Elixir): data, e-mail do autor, `bot`, número de arquivos Elixir e linhas adicionadas e removidas neles (`git show --numstat -M`; arquivo renomeado só conta as linhas alteradas). De 2012 a 2020 são todos os commits, e não a amostra do dataset original; de 2021 a 2025 são os mesmos commits do período `extended` de `commits.csv`. Criado por `vuln.volume` |
 | `sample_80.csv` | amostra estratificada de 80 commits do período estendido, com trecho do diff, para rotular à mão |
 | `sample_80_labeled.csv` | a mesma planilha já rotulada (criada pelo autor, não pela ferramenta) |
 | `judgments.jsonl` | um julgamento do modelo por linha (commit, execução 1 a 3, modelo, versão do prompt, rótulo, categoria CIA, motivo, uso de tokens ou erro). Criado por `vuln.judge` |
@@ -73,7 +73,7 @@ Observações:
 | `ai_markers.*` | commits com e sem marcador de IA na mensagem, por ano (2021 a 2025) |
 | `ai_repo_files.*` | arquivos de instrução de IA nos repositórios |
 | `bots.*` | commits de bots por ano |
-| `volume.*` | volume de alterações por ano (2021 a 2025, sem bots): commits, autores distintos (por e-mail), arquivos Elixir alterados, arquivos por commit, commits com 10 arquivos ou mais, mediana de linhas adicionadas e total de linhas adicionadas e removidas |
+| `volume.*` | volume de alterações por ano (2012 a 2025, sem bots): commits, repositórios com commit no ano, autores distintos (por e-mail), arquivos Elixir alterados, arquivos por commit, commits com 10 arquivos ou mais, mediana de linhas adicionadas e total de linhas adicionadas e removidas |
 | `volume_repos.*`, `volume_trimestres.*`, `volume_sem_analytics.*` | as mesmas colunas por repositório e ano, por trimestre e sem o repositório `analytics` |
 | `volume_vulneraveis.*` | commits vulneráveis por 10 mil linhas Elixir adicionadas, por ano |
 | `tamanho_vulneraveis.*` | proporção de commits vulneráveis por número de arquivos Elixir no commit |

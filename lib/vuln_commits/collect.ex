@@ -100,7 +100,7 @@ defmodule VulnCommits.Collect do
     length(all) - length(plain)
   end
 
-  defp branch_ref(dir, branch) do
+  def branch_ref(dir, branch) do
     remote = "origin/" <> branch
 
     if Git.object_exists?(dir, remote) do

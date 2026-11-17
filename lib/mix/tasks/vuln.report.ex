@@ -104,13 +104,15 @@ defmodule Mix.Tasks.Vuln.Report do
 
   defp volume(extended, labels) do
     if File.exists?(@volume) do
-      lines = Volume.load(@volume)
+      rows = Volume.load(@volume)
+      lines = Volume.by_hash(rows)
+      years = Enum.to_list(2012..2025)
 
       %{
-        per_year: Volume.per_year(extended, lines),
-        per_repo: Volume.per_repo(extended, lines),
-        per_quarter: Volume.per_quarter(extended, lines),
-        without_analytics: Volume.without_repo(extended, lines, "analytics"),
+        per_year: Volume.per_year(rows, years),
+        per_repo: Volume.per_repo(rows, years),
+        per_quarter: Volume.per_quarter(rows),
+        without_analytics: Volume.without_repo(rows, "analytics", years),
         vulnerable_density: Report.vulnerable_density(extended, labels, lines),
         vulnerable_by_size: Report.vulnerable_by_size(extended, labels)
       }
@@ -169,6 +171,7 @@ defmodule Mix.Tasks.Vuln.Report do
     year_headers = [
       "ano",
       "commits",
+      "repositórios",
       "autores",
       "arquivos",
       "arquivos por commit",
@@ -180,7 +183,7 @@ defmodule Mix.Tasks.Vuln.Report do
 
     [
       {"volume", year_headers, volume_rows(volume.per_year),
-       "Volume de alterações em arquivos Elixir por ano"},
+       "Volume de alterações em arquivos Elixir por ano (histórico completo da branch padrão)"},
       {"volume_sem_analytics", year_headers, volume_rows(volume.without_analytics),
        "Volume de alterações por ano sem o repositório analytics"},
       {"volume_repos", ["repositório" | year_headers], volume_repo_rows(volume.per_repo),
@@ -220,6 +223,7 @@ defmodule Mix.Tasks.Vuln.Report do
   defp volume_cells(row) do
     [
       row.commits,
+      row.repos,
       row.authors,
       row.files,
       row.files_per_commit,

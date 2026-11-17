@@ -1,27 +1,51 @@
 defmodule VulnCommits.Volume do
-  alias VulnCommits.{Commit, CSV, Git, Metrics}
+  alias VulnCommits.{Bots, Collect, Commit, CSV, Git, Metrics}
 
-  @columns ~w(repo hash elixir_added elixir_deleted)
-  @years 2021..2025
+  @columns ~w(repo hash date year author_email bot elixir_files elixir_added elixir_deleted)
   @large 10
 
-  def collect(commits, dirs, numstat \\ &Git.numstat/2) do
+  def collect(repo_rows, opts) do
+    Enum.flat_map(repo_rows, fn row -> collect_repo(row, opts) end)
+  end
+
+  defp collect_repo(row, opts) do
+    since = Keyword.fetch!(opts, :since)
+    until = Keyword.fetch!(opts, :until)
+    ref = Collect.branch_ref(row.dir, row.default_branch)
+    entries = Git.log(row.dir, ref, no_merges: true, since: since, until: until)
+
     results =
-      Task.async_stream(commits, fn commit -> lines_of(commit, dirs, numstat) end,
+      Task.async_stream(entries, fn entry -> measure(entry, row) end,
         max_concurrency: 4,
         timeout: :infinity
       )
 
-    Enum.map(results, fn {:ok, row} -> row end)
+    measured = Enum.map(results, fn {:ok, measured_row} -> measured_row end)
+    Enum.reject(measured, fn measured_row -> measured_row.files == 0 end)
   end
 
-  defp lines_of(commit, dirs, numstat) do
-    entries = numstat.(Map.fetch!(dirs, commit.repo), commit.hash)
-    elixir_entries = Enum.filter(entries, fn entry -> Commit.elixir_file?(entry.path) end)
+  defp measure(entry, row) do
+    numstat = Git.numstat(row.dir, entry.hash)
+    commit = %Commit{author_name: entry.author_name, author_email: entry.author_email}
+    Map.merge(lines_of(numstat), identity(entry, row.name, Bots.bot?(commit)))
+  end
+
+  defp identity(entry, repo, bot) do
+    %{
+      repo: repo,
+      hash: entry.hash,
+      date: entry.date,
+      year: entry.date.year,
+      author_email: entry.author_email,
+      bot: bot
+    }
+  end
+
+  def lines_of(numstat) do
+    elixir_entries = Enum.filter(numstat, fn entry -> Commit.elixir_file?(entry.path) end)
 
     %{
-      repo: commit.repo,
-      hash: commit.hash,
+      files: length(elixir_entries),
       added: sum(elixir_entries, fn entry -> entry.added end),
       deleted: sum(elixir_entries, fn entry -> entry.deleted end)
     }
@@ -30,7 +54,17 @@ defmodule VulnCommits.Volume do
   def write(rows, path) do
     cells =
       Enum.map(rows, fn row ->
-        [row.repo, row.hash, to_string(row.added), to_string(row.deleted)]
+        [
+          row.repo,
+          row.hash,
+          Date.to_iso8601(row.date),
+          to_string(row.year),
+          row.author_email,
+          to_string(row.bot),
+          to_string(row.files),
+          to_string(row.added),
+          to_string(row.deleted)
+        ]
       end)
 
     CSV.write(path, @columns, cells)
@@ -39,70 +73,78 @@ defmodule VulnCommits.Volume do
   def load(path) do
     rows = CSV.read(path)
 
-    Map.new(rows, fn row ->
-      lines = %{
+    Enum.map(rows, fn row ->
+      %{
+        repo: row["repo"],
+        hash: row["hash"],
+        date: Date.from_iso8601!(row["date"]),
+        year: String.to_integer(row["year"]),
+        author_email: row["author_email"],
+        bot: row["bot"] == "true",
+        files: String.to_integer(row["elixir_files"]),
         added: String.to_integer(row["elixir_added"]),
         deleted: String.to_integer(row["elixir_deleted"])
       }
-
-      {row["hash"], lines}
     end)
   end
 
-  def per_year(extended, lines) do
-    by_year = Enum.group_by(humans(extended), fn commit -> commit.year end)
+  def by_hash(rows), do: Map.new(rows, fn row -> {row.hash, row} end)
 
-    Enum.map(@years, fn year ->
+  def per_year(rows, years) do
+    by_year = Enum.group_by(humans(rows), fn row -> row.year end)
+
+    Enum.map(years, fn year ->
       group = Map.get(by_year, year, [])
-      Map.put(stats(group, lines), :year, year)
+      Map.put(stats(group), :year, year)
     end)
   end
 
-  def per_repo(extended, lines) do
-    groups = Enum.group_by(humans(extended), fn commit -> {commit.repo, commit.year} end)
-    repos = Enum.uniq(Enum.map(extended, fn commit -> commit.repo end))
+  def per_repo(rows, years) do
+    groups = Enum.group_by(humans(rows), fn row -> {row.repo, row.year} end)
+    repos = Enum.uniq(Enum.map(rows, fn row -> row.repo end))
 
-    for repo <- Enum.sort(repos), year <- @years do
+    for repo <- Enum.sort(repos), year <- years do
       group = Map.get(groups, {repo, year}, [])
-      row = Map.put(stats(group, lines), :year, year)
+      row = Map.put(stats(group), :year, year)
       Map.put(row, :repo, repo)
     end
   end
 
-  def per_quarter(extended, lines) do
-    by_quarter = Enum.group_by(humans(extended), fn commit -> quarter(commit.date) end)
+  def per_quarter(rows) do
+    by_quarter = Enum.group_by(humans(rows), fn row -> quarter(row.date) end)
 
     Enum.map(Enum.sort(by_quarter), fn {label, group} ->
-      Map.put(stats(group, lines), :quarter, label)
+      Map.put(stats(group), :quarter, label)
     end)
   end
 
   defp quarter(date), do: "#{date.year}T#{div(date.month - 1, 3) + 1}"
 
-  def without_repo(extended, lines, repo) do
-    others = Enum.reject(extended, fn commit -> commit.repo == repo end)
-    per_year(others, lines)
+  def without_repo(rows, repo, years) do
+    others = Enum.reject(rows, fn row -> row.repo == repo end)
+    per_year(others, years)
   end
 
-  defp humans(commits), do: Enum.reject(commits, fn commit -> commit.bot end)
+  defp humans(rows), do: Enum.reject(rows, fn row -> row.bot end)
 
-  defp stats(commits, lines) do
-    total = length(commits)
-    file_counts = Enum.map(commits, fn commit -> length(commit.elixir_files) end)
-    added = Enum.map(commits, fn commit -> Map.fetch!(lines, commit.hash).added end)
-    deleted = Enum.map(commits, fn commit -> Map.fetch!(lines, commit.hash).deleted end)
-    authors = Enum.uniq(Enum.map(commits, fn commit -> commit.author_email end))
-    large = Enum.count(file_counts, fn count -> count >= @large end)
+  defp stats(rows) do
+    total = length(rows)
+    files = sum(rows, fn row -> row.files end)
+    added = Enum.map(rows, fn row -> row.added end)
+    authors = Enum.uniq(Enum.map(rows, fn row -> row.author_email end))
+    repos = Enum.uniq(Enum.map(rows, fn row -> row.repo end))
+    large = Enum.count(rows, fn row -> row.files >= @large end)
 
     %{
       commits: total,
+      repos: length(repos),
       authors: length(authors),
-      files: Enum.sum(file_counts),
-      files_per_commit: mean(Enum.sum(file_counts), total),
+      files: files,
+      files_per_commit: mean(files, total),
       large_pct: Metrics.proportion(large, total),
       median_added: median(added),
       added: Enum.sum(added),
-      deleted: Enum.sum(deleted)
+      deleted: sum(rows, fn row -> row.deleted end)
     }
   end
 
