@@ -73,7 +73,8 @@ Observações:
 | `ai_markers.*` | commits com e sem marcador de IA na mensagem, por ano (2021 a 2025) |
 | `ai_repo_files.*` | arquivos de instrução de IA nos repositórios |
 | `bots.*` | commits de bots por ano |
-| `volume.*` | volume de alterações por ano (2012 a 2025, sem bots): commits, repositórios com commit no ano, autores distintos (por e-mail), arquivos Elixir alterados, arquivos por commit, commits com 10 arquivos ou mais, mediana de linhas adicionadas e total de linhas adicionadas e removidas |
+| `volume.*` | volume de alterações por ano (2012 a 2025, sem bots): commits, repositórios com commit no ano, autores distintos (por e-mail), arquivos Elixir alterados, arquivos por commit, commits com 10 arquivos ou mais, mediana de linhas adicionadas, total de linhas adicionadas e removidas e commits, arquivos e linhas adicionadas por autor |
+| `volume_autores_frequentes.*` | autores com 10 commits ou mais no ano: quantos são, a parcela dos commits que fazem os commits, arquivos e linhas adicionadas por autor e a parcela de autores com um único commit no ano |
 | `volume_repos.*`, `volume_trimestres.*`, `volume_sem_analytics.*` | as mesmas colunas por repositório e ano, por trimestre e sem o repositório `analytics` |
 | `volume_vulneraveis.*` | commits vulneráveis por 10 mil linhas Elixir adicionadas, por ano |
 | `tamanho_vulneraveis.*` | proporção de commits vulneráveis por número de arquivos Elixir no commit |

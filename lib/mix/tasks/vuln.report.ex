@@ -112,6 +112,7 @@ defmodule Mix.Tasks.Vuln.Report do
         per_year: Volume.per_year(rows, years),
         per_repo: Volume.per_repo(rows, years),
         per_quarter: Volume.per_quarter(rows),
+        frequent_authors: Volume.frequent_authors(rows, years),
         without_analytics: Volume.without_repo(rows, "analytics", years),
         vulnerable_density: Report.vulnerable_density(extended, labels, lines),
         vulnerable_by_size: Report.vulnerable_by_size(extended, labels)
@@ -178,7 +179,10 @@ defmodule Mix.Tasks.Vuln.Report do
       "commits com ≥10 arquivos (%)",
       "mediana de linhas adicionadas",
       "linhas adicionadas",
-      "linhas removidas"
+      "linhas removidas",
+      "commits por autor",
+      "arquivos por autor",
+      "linhas adicionadas por autor"
     ]
 
     [
@@ -191,6 +195,17 @@ defmodule Mix.Tasks.Vuln.Report do
       {"volume_trimestres", ["trimestre" | tl(year_headers)],
        volume_quarter_rows(volume.per_quarter),
        "Volume de alterações em arquivos Elixir por trimestre"},
+      {"volume_autores_frequentes",
+       [
+         "ano",
+         "autores com ≥10 commits",
+         "commits deles (%)",
+         "commits por autor",
+         "arquivos por autor",
+         "linhas adicionadas por autor",
+         "autores com 1 commit (%)"
+       ], frequent_rows(volume.frequent_authors),
+       "Autores com dez commits ou mais no ano e o volume por autor"},
       {"volume_vulneraveis", ["ano", "vulneráveis", "linhas adicionadas", "por 10 mil linhas"],
        density_rows(volume.vulnerable_density),
        "Commits vulneráveis por 10 mil linhas Elixir adicionadas"},
@@ -212,6 +227,20 @@ defmodule Mix.Tasks.Vuln.Report do
     Enum.map(rows, fn row -> [row.quarter | volume_cells(row)] end)
   end
 
+  defp frequent_rows(rows) do
+    Enum.map(rows, fn row ->
+      [
+        row.year,
+        row.authors,
+        row.commits_pct,
+        row.commits_per_author,
+        row.files_per_author,
+        row.added_per_author,
+        row.single_commit_pct
+      ]
+    end)
+  end
+
   defp density_rows(rows) do
     Enum.map(rows, fn row -> [row.year, row.vulnerable, row.added, row.per_10k_lines] end)
   end
@@ -230,7 +259,10 @@ defmodule Mix.Tasks.Vuln.Report do
       row.large_pct,
       row.median_added,
       row.added,
-      row.deleted
+      row.deleted,
+      row.commits_per_author,
+      row.files_per_author,
+      row.added_per_author
     ]
   end
 

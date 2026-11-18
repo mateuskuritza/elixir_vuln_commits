@@ -90,11 +90,35 @@ defmodule VulnCommits.VolumeTest do
              large_pct: 33.33,
              median_added: 10.0,
              added: 114,
-             deleted: 51
+             deleted: 51,
+             commits_per_author: 1.5,
+             files_per_author: 7.0,
+             added_per_author: 57.0
            }
 
     assert Enum.find(result, &(&1.year == 2023)).commits == 0
     assert Enum.find(result, &(&1.year == 2023)).files_per_commit == 0.0
+  end
+
+  test "frequent_authors conta só quem tem dez commits ou mais no ano" do
+    frequent = Enum.map(1..10, &row("f#{&1}", email: "f@example.com", files: 2, added: 30))
+    occasional = [row("o1", email: "o@example.com", added: 500)]
+    bot = Enum.map(1..10, &row("b#{&1}", email: "bot@example.com", bot: true))
+
+    result = Volume.frequent_authors(frequent ++ occasional ++ bot, [2023, 2024])
+
+    assert Enum.find(result, &(&1.year == 2024)) == %{
+             year: 2024,
+             authors: 1,
+             single_commit_pct: 50.0,
+             commits_pct: 90.91,
+             commits_per_author: 10.0,
+             files_per_author: 20.0,
+             added_per_author: 300.0
+           }
+
+    assert Enum.find(result, &(&1.year == 2023)).authors == 0
+    assert Enum.find(result, &(&1.year == 2023)).added_per_author == 0.0
   end
 
   test "per_repo separa por repositório e ano" do

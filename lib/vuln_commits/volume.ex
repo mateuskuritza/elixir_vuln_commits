@@ -3,6 +3,7 @@ defmodule VulnCommits.Volume do
 
   @columns ~w(repo hash date year author_email bot elixir_files elixir_added elixir_deleted)
   @large 10
+  @frequent 10
 
   def collect(repo_rows, opts) do
     Enum.flat_map(repo_rows, fn row -> collect_repo(row, opts) end)
@@ -144,8 +145,34 @@ defmodule VulnCommits.Volume do
       large_pct: Metrics.proportion(large, total),
       median_added: median(added),
       added: Enum.sum(added),
-      deleted: sum(rows, fn row -> row.deleted end)
+      deleted: sum(rows, fn row -> row.deleted end),
+      commits_per_author: mean(total, length(authors)),
+      files_per_author: mean(files, length(authors)),
+      added_per_author: mean(Enum.sum(added), length(authors))
     }
+  end
+
+  def frequent_authors(rows, years) do
+    by_year = Enum.group_by(humans(rows), fn row -> row.year end)
+
+    Enum.map(years, fn year ->
+      group = Map.get(by_year, year, [])
+      by_author = Enum.group_by(group, fn row -> row.author_email end)
+      frequent = Enum.filter(by_author, fn {_email, commits} -> length(commits) >= @frequent end)
+      frequent_rows = Enum.flat_map(frequent, fn {_email, commits} -> commits end)
+      authors = length(frequent)
+      single = Enum.count(by_author, fn {_email, commits} -> length(commits) == 1 end)
+
+      %{
+        year: year,
+        authors: authors,
+        single_commit_pct: Metrics.proportion(single, map_size(by_author)),
+        commits_pct: Metrics.proportion(length(frequent_rows), length(group)),
+        commits_per_author: mean(length(frequent_rows), authors),
+        files_per_author: mean(sum(frequent_rows, fn row -> row.files end), authors),
+        added_per_author: mean(sum(frequent_rows, fn row -> row.added end), authors)
+      }
+    end)
   end
 
   defp sum(list, fun), do: Enum.sum(Enum.map(list, fun))
