@@ -19,7 +19,7 @@ defmodule VulnCommits.Judge.StoreTest do
       hash: hash,
       repo: Keyword.get(opts, :repo, "org/repo"),
       run: run,
-      model: Keyword.get(opts, :model, "gpt-4.1-mini-2025-04-14"),
+      model: Keyword.get(opts, :model, "claude-opus-5-5"),
       prompt_version: Keyword.get(opts, :prompt_version, "v1"),
       label: label,
       cia: "availability",
@@ -72,8 +72,8 @@ defmodule VulnCommits.Judge.StoreTest do
 
     assert Store.done(Store.load(path)) ==
              MapSet.new([
-               {"a1", 1, "gpt-4.1-mini-2025-04-14", "v1"},
-               {"b2", 1, "gpt-4.1-mini-2025-04-14", "v1"}
+               {"a1", 1, "claude-opus-5-5", "v1"},
+               {"b2", 1, "claude-opus-5-5", "v1"}
              ])
   end
 
@@ -86,7 +86,7 @@ defmodule VulnCommits.Judge.StoreTest do
       record("b2", 2, "NEUTRAL")
     ]
 
-    assert Store.by_commit(records, "gpt-4.1-mini-2025-04-14", "v1") == %{
+    assert Store.by_commit(records, "claude-opus-5-5", "v1") == %{
              "a1" => [:vulnerable, :neutral],
              "b2" => [:neutral]
            }
@@ -95,11 +95,11 @@ defmodule VulnCommits.Judge.StoreTest do
   test "by_commit ignora outro modelo" do
     records = [
       record("a1", 1, "VULNERABLE", model: "gpt-4o-2024-08-06"),
-      record("a1", 2, "NEUTRAL", model: "gpt-4.1-mini-2025-04-14"),
+      record("a1", 2, "NEUTRAL", model: "claude-opus-5-5"),
       record("b2", 1, "VULNERABLE", model: "gpt-4o-2024-08-06")
     ]
 
-    assert Store.by_commit(records, "gpt-4.1-mini-2025-04-14", "v1") == %{
+    assert Store.by_commit(records, "claude-opus-5-5", "v1") == %{
              "a1" => [:neutral]
            }
   end
@@ -111,7 +111,7 @@ defmodule VulnCommits.Judge.StoreTest do
       record("a1", 1, "NEUTRAL")
     ]
 
-    assert Store.by_commit(records, "gpt-4.1-mini-2025-04-14", "v1") == %{
+    assert Store.by_commit(records, "claude-opus-5-5", "v1") == %{
              "a1" => [:neutral, :neutral]
            }
   end

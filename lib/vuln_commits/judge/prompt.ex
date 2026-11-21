@@ -4,7 +4,7 @@ defmodule VulnCommits.Judge.Prompt do
 
   @max_bytes 12_000
 
-  def version, do: System.get_env("OPENAI_PROMPT_VERSION", "v2")
+  def version, do: System.get_env("PROMPT_VERSION", "v2")
 
   def system(version) do
     path = Application.app_dir(:vuln_commits, "priv/prompts/#{version}.md")

@@ -75,14 +75,14 @@ defmodule VulnCommits.Judge.PromptTest do
     assert text =~ "Otherwise NEUTRAL."
   end
 
-  test "version padrao e v2 e le OPENAI_PROMPT_VERSION" do
-    System.delete_env("OPENAI_PROMPT_VERSION")
+  test "version padrao e v2 e le PROMPT_VERSION" do
+    System.delete_env("PROMPT_VERSION")
     assert Prompt.version() == "v2"
 
-    System.put_env("OPENAI_PROMPT_VERSION", "v1")
+    System.put_env("PROMPT_VERSION", "v1")
     assert Prompt.version() == "v1"
   after
-    System.delete_env("OPENAI_PROMPT_VERSION")
+    System.delete_env("PROMPT_VERSION")
   end
 
   test "schema tem os tres campos obrigatorios e nao aceita extras" do

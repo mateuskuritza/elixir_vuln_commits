@@ -5,7 +5,7 @@ defmodule VulnCommits.JudgeTest do
   alias VulnCommits.{Commit, Judge}
   alias VulnCommits.Judge.Store
 
-  @model "gpt-test"
+  @model "modelo-teste"
   @version "v1"
 
   setup do

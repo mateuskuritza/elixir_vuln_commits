@@ -7,7 +7,7 @@ Ferramenta em Elixir que replica e estende o estudo de commits de correção de 
 - Elixir 1.20 com OTP 29 (`mix --version`).
 - `git` no PATH.
 - Para falar com o GitHub: o `gh` autenticado (`gh auth login`) ou a variável `GITHUB_TOKEN`. Sem nenhum dos dois a consulta funciona, mas com limite menor de requisições.
-- `OPENAI_API_KEY`, só para `mix vuln.judge`. Nenhum outro comando usa a API da OpenAI.
+- `ANTHROPIC_API_KEY`, só para `mix vuln.judge`. Nenhum outro comando usa a API da Anthropic.
 
 As variáveis de ambiente não são lidas de arquivo. Copie `.env.example` para `.env`, preencha e carregue na sessão antes de rodar:
 
@@ -36,7 +36,7 @@ mix vuln.dataset  ->  vuln.repos  ->  vuln.collect  ->  vuln.volume  ->  vuln.sa
 | `mix vuln.collect` | `data/repos.csv`, o CSV do figshare e os clones | `data/commits.csv` (período original e estendido) e `data/repo_markers.csv` |
 | `mix vuln.volume` | `data/repos.csv` e os clones | `data/volume.csv` (arquivos e linhas Elixir de cada commit da branch padrão, de 2012 a 2025) |
 | `mix vuln.sample export` | `data/commits.csv`, `data/repos.csv` e os clones | `data/sample_80.csv`, a planilha de 80 commits para rotular à mão |
-| `mix vuln.judge --period original --years 2012-2016` | `data/commits.csv`, os clones e a API da OpenAI | acrescenta linhas em `data/judgments.jsonl` (conjunto de desenvolvimento) |
+| `mix vuln.judge --period original --years 2012-2016` | `data/commits.csv`, os clones e a API da Anthropic | acrescenta linhas em `data/judgments.jsonl` (conjunto de desenvolvimento) |
 | `mix vuln.judge --period original --years 2017-2020` | idem | idem (conjunto de avaliação) |
 | `mix vuln.judge --period extended` | idem | idem (2021 a 2025) |
 | `mix vuln.sample import` | `data/sample_80_labeled.csv`, `data/commits.csv` e `data/judgments.jsonl` | `out/manual_agreement.csv` |
@@ -85,12 +85,12 @@ Observações:
 
 ## Reproduzir sem rede
 
-`mix vuln.report` só lê arquivos de `data/` (`commits.csv`, `repo_markers.csv`, `judgments.jsonl` e, se existirem, `sample_80_labeled.csv` e `volume.csv`). Não usa rede, clones nem chave. Com os dados versionados, `mix deps.get && mix vuln.report` refaz todas as tabelas de `out/`. Se `judgments.jsonl` não existe, o comando avisa e trata todo candidato como neutro. Os testes (`mix test`) também rodam sem rede, com a API do GitHub e da OpenAI simuladas.
+`mix vuln.report` só lê arquivos de `data/` (`commits.csv`, `repo_markers.csv`, `judgments.jsonl` e, se existirem, `sample_80_labeled.csv` e `volume.csv`). Não usa rede, clones nem chave. Com os dados versionados, `mix deps.get && mix vuln.report` refaz todas as tabelas de `out/`. Se `judgments.jsonl` não existe, o comando avisa e trata todo candidato como neutro. Os testes (`mix test`) também rodam sem rede, com a API do GitHub e da Anthropic simuladas.
 
 ## Modelo e prompt
 
-- Os julgamentos versionados em `data/judgments.jsonl` foram feitos por agentes do modelo `claude-opus-5-5`, pelo caminho `mix vuln.agents` (descrito abaixo), e não pela API da OpenAI. O nome do modelo gravado vem de `JUDGE_MODEL` (padrão `claude-opus-5-5`).
-- Prompt: versão `v2`, em `priv/prompts/v2.md` (padrão). A `v1` foi a primeira tentativa e ficou guardada, com os julgamentos dela no conjunto de 2012 a 2016. Troque com `OPENAI_PROMPT_VERSION` (o arquivo `priv/prompts/<versão>.md` precisa existir).
+- Os julgamentos versionados em `data/judgments.jsonl` foram feitos por agentes do modelo `claude-opus-5-5`, pelo caminho `mix vuln.agents` (descrito abaixo). O mesmo modelo pode ser chamado pela API da Anthropic com `mix vuln.judge`. O nome do modelo gravado vem de `JUDGE_MODEL` (padrão `claude-opus-5-5`).
+- Prompt: versão `v2`, em `priv/prompts/v2.md` (padrão). A `v1` foi a primeira tentativa e ficou guardada, com os julgamentos dela no conjunto de 2012 a 2016. Troque com `PROMPT_VERSION` (o arquivo `priv/prompts/<versão>.md` precisa existir).
 - Cada candidato é julgado 3 vezes, em execuções independentes. O rótulo final é a maioria, com pelo menos 2 votos iguais. O diff vai truncado em 12.000 bytes, com prioridade para arquivos Elixir.
 - `vuln.report` e `vuln.sample import` só usam os julgamentos do modelo e da versão de prompt vigentes.
 
@@ -104,9 +104,9 @@ mix vuln.agents import --run 1 --out lotes/run1
 
 `export` grava lotes de 20 commits, cada um com as instruções do prompt, a mensagem, os arquivos e o diff truncado. Cada lote é entregue a um agente novo, sem memória dos outros lotes nem das outras execuções, que devolve uma linha JSON por commit. `import` confere os hashes e acrescenta os julgamentos em `data/judgments.jsonl`. Por esse caminho não há controle de `temperature` nem de `seed`; a variação entre as 3 execuções é medida pelo kappa entre execuções em `out/agreement.*`.
 
-### Julgamento pela API da OpenAI (`mix vuln.judge`)
+### Julgamento pela API da Anthropic (`mix vuln.judge`)
 
-Caminho alternativo, implementado e testado, mas não usado nos dados versionados: modelo `gpt-4.1-mini-2025-04-14` (troque com `OPENAI_MODEL`), `temperature: 0` e `seed` 1, 2 e 3.
+Caminho alternativo, implementado e testado, mas não usado nos dados versionados: o mesmo modelo dos agentes (`claude-opus-5-5`, troque com `JUDGE_MODEL`), chamado pela Messages API com saída em JSON Schema (`output_config.format`) e `effort: "medium"`. O modelo não aceita `temperature` nem `seed`, então, como nos agentes, a variação entre as 3 execuções é medida e não fixada. Respostas 429 e 5xx são tentadas de novo até 5 vezes, com espera crescente.
 
 ## Regra do estágio 1 (palavras-chave)
 

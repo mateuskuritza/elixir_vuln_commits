@@ -1,15 +1,20 @@
-defmodule VulnCommits.Judge.OpenAI do
+defmodule VulnCommits.Judge.Anthropic do
+  # juiz pela api da anthropic (messages api, http direto com req, não tem sdk oficial em elixir).
+  # mesmo modelo dos agentes, então os julgamentos dos dois caminhos ficam comparáveis.
+  alias VulnCommits.Judge.Batch
   alias VulnCommits.Judge.Prompt
 
-  @url "https://api.openai.com/v1/chat/completions"
-  @default_model "gpt-4.1-mini-2025-04-14"
+  @url "https://api.anthropic.com/v1/messages"
+  @api_version "2026-10-21"
+  @default_model "claude-opus-5-5"
   @default_backoff_ms 500
   @max_attempts 5
-  @price_input 0.40
-  @price_output 1.60
+  # us$ por milhão de tokens do claude-opus-5-5
+  @price_input 4.0
+  @price_output 20.0
 
   def judge(system, user, opts) do
-    key = System.get_env("OPENAI_API_KEY")
+    key = System.get_env("ANTHROPIC_API_KEY")
 
     if key == nil or key == "" do
       {:error, :missing_api_key}
@@ -25,18 +30,16 @@ defmodule VulnCommits.Judge.OpenAI do
     end
   end
 
+  # sem temperature nem seed: o modelo não aceita. a variação entre execuções é medida pelo kappa
   defp payload(system, user, opts) do
     %{
       model: Keyword.get(opts, :model, default_model()),
-      temperature: 0,
-      seed: Keyword.fetch!(opts, :seed),
-      messages: [
-        %{role: "system", content: system},
-        %{role: "user", content: user}
-      ],
-      response_format: %{
-        type: "json_schema",
-        json_schema: %{name: "judgment", strict: true, schema: Prompt.schema()}
+      max_tokens: 4096,
+      system: system,
+      messages: [%{role: "user", content: user}],
+      output_config: %{
+        effort: "medium",
+        format: %{type: "json_schema", schema: Prompt.schema()}
       }
     }
   end
@@ -58,8 +61,9 @@ defmodule VulnCommits.Judge.OpenAI do
   end
 
   defp post(key, payload) do
-    base_options = [json: payload, auth: {:bearer, key}, retry: false, receive_timeout: 60_000]
-    extra_options = Application.get_env(:vuln_commits, :openai_req_options, [])
+    headers = [{"x-api-key", key}, {"anthropic-version", @api_version}]
+    base_options = [json: payload, headers: headers, retry: false, receive_timeout: 120_000]
+    extra_options = Application.get_env(:vuln_commits, :anthropic_req_options, [])
     options = base_options ++ extra_options
 
     case Req.post(@url, options) do
@@ -78,9 +82,15 @@ defmodule VulnCommits.Judge.OpenAI do
     end
   end
 
-  defp read_judgment(%{"choices" => [%{"message" => %{"content" => content}} | _]} = body) do
+  defp read_judgment(%{"stop_reason" => "refusal"} = body), do: {:error, {:refusal, body}}
+
+  defp read_judgment(%{"content" => blocks} = body) when is_list(blocks) do
     usage = Map.get(body, "usage", %{})
-    judgment(content, usage)
+
+    case Enum.find(blocks, fn block -> block["type"] == "text" end) do
+      %{"text" => text} -> judgment(text, usage)
+      nil -> {:error, {:bad_json, body}}
+    end
   end
 
   defp read_judgment(body), do: {:error, {:bad_json, body}}
@@ -115,7 +125,7 @@ defmodule VulnCommits.Judge.OpenAI do
   def estimate_cost(
         n_calls,
         avg_input_tokens \\ 4000,
-        avg_output_tokens \\ 80,
+        avg_output_tokens \\ 300,
         model \\ default_model()
       ) do
     if model == @default_model do
@@ -129,5 +139,6 @@ defmodule VulnCommits.Judge.OpenAI do
 
   def model, do: default_model()
 
-  defp default_model, do: System.get_env("OPENAI_MODEL", @default_model)
+  # mesmo JUDGE_MODEL do caminho por agentes
+  defp default_model, do: Batch.model()
 end

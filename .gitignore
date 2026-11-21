@@ -25,7 +25,7 @@ vuln_commits-*.tar
 # clones dos repositórios estudados (grandes, não versionar)
 /repos/
 
-# chaves da openai (nunca versionar)
+# chaves de api (nunca versionar)
 /.env
 
 /lotes/

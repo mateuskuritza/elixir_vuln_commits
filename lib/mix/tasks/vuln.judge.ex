@@ -2,7 +2,7 @@ defmodule Mix.Tasks.Vuln.Judge do
   use Mix.Task
 
   alias VulnCommits.{Collect, Judge, Repos}
-  alias VulnCommits.Judge.{OpenAI, Prompt, Store}
+  alias VulnCommits.Judge.{Anthropic, Prompt, Store}
 
   @shortdoc "Julga os candidatos com o modelo (3 runs por commit)"
 
@@ -21,7 +21,7 @@ defmodule Mix.Tasks.Vuln.Judge do
     dirs = Map.new(repo_rows, fn repo -> {repo.name, repo.dir} end)
     candidates = Judge.candidates(commits, opts.period, years: opts.years)
 
-    model = OpenAI.model()
+    model = Anthropic.model()
     version = Prompt.version()
     records = Store.load(@judgments)
     done = Store.done(records)
@@ -38,7 +38,7 @@ defmodule Mix.Tasks.Vuln.Judge do
       Mix.shell().info("dry-run: nenhuma chamada feita")
     else
       if should_run?(calls, opts) do
-        if api_key_ok?(System.get_env("OPENAI_API_KEY")) do
+        if api_key_ok?(System.get_env("ANTHROPIC_API_KEY")) do
           Judge.run(pairs,
             dirs: dirs,
             path: @judgments,
@@ -47,7 +47,7 @@ defmodule Mix.Tasks.Vuln.Judge do
           )
         else
           Mix.raise(
-            "OPENAI_API_KEY não definida ou vazia. defina a chave no ambiente (ou no .env) e rode de novo. nada foi julgado."
+            "ANTHROPIC_API_KEY não definida ou vazia. defina a chave no ambiente (ou no .env) e rode de novo. nada foi julgado."
           )
         end
       else
@@ -109,7 +109,7 @@ defmodule Mix.Tasks.Vuln.Judge do
   end
 
   defp cost_text(calls) do
-    case OpenAI.estimate_cost(calls) do
+    case Anthropic.estimate_cost(calls) do
       nil -> "sem preço para o modelo"
       cost -> "US$ #{Float.round(cost, 2)}"
     end

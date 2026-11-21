@@ -1,7 +1,7 @@
 defmodule VulnCommits.Judge do
   alias VulnCommits.Commit
   alias VulnCommits.Vote
-  alias VulnCommits.Judge.OpenAI
+  alias VulnCommits.Judge.Anthropic
   alias VulnCommits.Judge.Prompt
   alias VulnCommits.Judge.Store
 
@@ -37,7 +37,7 @@ defmodule VulnCommits.Judge do
     model =
       case Keyword.fetch(opts, :model) do
         {:ok, model} -> model
-        :error -> OpenAI.model()
+        :error -> Anthropic.model()
       end
 
     version =
@@ -97,7 +97,7 @@ defmodule VulnCommits.Judge do
     fn commit, dir, run ->
       diff = Prompt.diff_for(commit, dir)
       user = Prompt.user(commit, diff)
-      OpenAI.judge(system, user, seed: run, model: model)
+      Anthropic.judge(system, user, seed: run, model: model)
     end
   end
 
