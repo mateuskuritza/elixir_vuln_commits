@@ -200,22 +200,36 @@ defmodule VulnCommits.Report do
     end
   end
 
-  def vulnerable_density(extended, labels, lines) do
-    not_bots = Enum.reject(extended, fn commit -> commit.bot end)
+  def vulnerable_density(commits, labels, lines, years \\ 2021..2025) do
+    not_bots = Enum.reject(commits, fn commit -> commit.bot end)
     by_year = Enum.group_by(not_bots, fn commit -> commit.year end)
 
-    Enum.map(Enum.to_list(2021..2025), fn year ->
-      group = Map.get(by_year, year, [])
-      added = Enum.sum(Enum.map(group, fn commit -> Map.fetch!(lines, commit.hash).added end))
-      vulnerable_count = length(vulnerable(group, labels))
-
-      %{
-        year: year,
-        vulnerable: vulnerable_count,
-        added: added,
-        per_10k_lines: per_10k(vulnerable_count, added)
-      }
+    Enum.map(Enum.to_list(years), fn year ->
+      density(to_string(year), Map.get(by_year, year, []), labels, lines)
+      |> Map.put(:year, year)
     end)
+  end
+
+  # o mesmo cálculo para um período inteiro (2012 a 2020 e 2021 a 2025)
+  def vulnerable_density_periods(commits, labels, lines, periods) do
+    not_bots = Enum.reject(commits, fn commit -> commit.bot end)
+
+    Enum.map(periods, fn first..last//_ ->
+      group = Enum.filter(not_bots, fn commit -> commit.year in first..last end)
+      density("#{first} a #{last}", group, labels, lines)
+    end)
+  end
+
+  defp density(name, group, labels, lines) do
+    added = Enum.sum(Enum.map(group, fn commit -> Map.fetch!(lines, commit.hash).added end))
+    vulnerable_count = length(vulnerable(group, labels))
+
+    %{
+      name: name,
+      vulnerable: vulnerable_count,
+      added: added,
+      per_10k_lines: per_10k(vulnerable_count, added)
+    }
   end
 
   defp per_10k(_count, 0), do: 0.0

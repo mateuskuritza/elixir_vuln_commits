@@ -34,7 +34,7 @@ mix vuln.dataset  ->  vuln.repos  ->  vuln.collect  ->  vuln.volume  ->  vuln.sa
 | `mix vuln.dataset` | download do figshare (só se o arquivo não existe) | `data/figshare/ELIXIR_FINAL_SECURITY_BUG_DATASET.csv`; imprime o resumo do dataset |
 | `mix vuln.repos` | o CSV do figshare, o GitHub e `priv/repo_map.exs` | clones em `repos/<nome>` e `data/repos.csv` (qual repositório segue ativo) |
 | `mix vuln.collect` | `data/repos.csv`, o CSV do figshare e os clones | `data/commits.csv` (período original e estendido) e `data/repo_markers.csv` |
-| `mix vuln.volume` | `data/repos.csv` e os clones | `data/volume.csv` (arquivos e linhas Elixir de cada commit da branch padrão, de 2012 a 2025) |
+| `mix vuln.volume` | `data/repos.csv`, `data/commits.csv` e os clones | `data/volume.csv` (arquivos e linhas Elixir de cada commit da branch padrão, de 2012 a 2025) e `data/volume_original.csv` (o mesmo para os commits do dataset de 2012 a 2020). `mix vuln.volume original` refaz só o segundo |
 | `mix vuln.sample export` | `data/commits.csv`, `data/repos.csv` e os clones | `data/sample_80.csv`, a planilha de 80 commits para rotular à mão |
 | `mix vuln.judge --period original --years 2012-2016` | `data/commits.csv`, os clones e a API da Anthropic | acrescenta linhas em `data/judgments.jsonl` (conjunto de desenvolvimento) |
 | `mix vuln.judge --period original --years 2017-2020` | idem | idem (conjunto de avaliação) |
@@ -59,6 +59,7 @@ Observações:
 | `commits.csv` | um commit por linha, dos dois períodos (`original` e `extended`): data, ano, autor, `keyword_hit`, termos casados, `bot`, marcadores de IA, rótulo humano, arquivos e mensagem |
 | `repo_markers.csv` | arquivos de instrução para agentes de IA (`AGENTS.md`, `CLAUDE.md` etc.) encontrados no histórico de cada repositório, com a data em que apareceram |
 | `volume.csv` | um commit por linha, com todo o histórico da branch padrão dos repositórios ativos de 2012 a 2025 (sem merges, só commits com arquivo Elixir): data, e-mail do autor, `bot`, número de arquivos Elixir e linhas adicionadas e removidas neles (`git show --numstat -M`; arquivo renomeado só conta as linhas alteradas). De 2012 a 2020 são todos os commits, e não a amostra do dataset original; de 2021 a 2025 são os mesmos commits do período `extended` de `commits.csv`. Criado por `vuln.volume` |
+| `volume_original.csv` | as mesmas colunas de `volume.csv`, para os 4.183 commits do dataset nos repositórios ativos (2012 a 2020), medidos pelo hash. Parte deles não está na branch padrão, porque o histórico do repositório `elixir` foi reescrito. Criado por `vuln.volume` |
 | `sample_80.csv` | amostra estratificada de 80 commits do período estendido, com trecho do diff, para rotular à mão |
 | `sample_80_labeled.csv` | a mesma planilha já rotulada (criada pelo autor, não pela ferramenta) |
 | `judgments.jsonl` | um julgamento do modelo por linha (commit, execução 1 a 3, modelo, versão do prompt, rótulo, categoria CIA, motivo, uso de tokens ou erro). Criado por `vuln.judge` |
@@ -76,7 +77,8 @@ Observações:
 | `volume.*` | volume de alterações por ano (2012 a 2025, sem bots): commits, repositórios com commit no ano, autores distintos (por e-mail), arquivos Elixir alterados, arquivos por commit, commits com 10 arquivos ou mais, mediana de linhas adicionadas, total de linhas adicionadas e removidas e commits, arquivos e linhas adicionadas por autor |
 | `volume_autores_frequentes.*` | autores com 10 commits ou mais no ano: quantos são, a parcela dos commits que fazem os commits, arquivos e linhas adicionadas por autor e a parcela de autores com um único commit no ano |
 | `volume_repos.*`, `volume_trimestres.*`, `volume_sem_analytics.*` | as mesmas colunas por repositório e ano, por trimestre e sem o repositório `analytics` |
-| `volume_vulneraveis.*` | commits vulneráveis por 10 mil linhas Elixir adicionadas, por ano |
+| `volume_vulneraveis.*` | commits vulneráveis por 10 mil linhas Elixir adicionadas, por ano. De 2012 a 2020 usa só os commits do dataset (precisa de `volume_original.csv`) |
+| `volume_vulneraveis_periodos.*` | o mesmo, somado por período (2012 a 2020 e 2021 a 2025) |
 | `tamanho_vulneraveis.*` | proporção de commits vulneráveis por número de arquivos Elixir no commit |
 | `summary.json` | todos os números acima em um só arquivo, mais o modelo e a versão do prompt |
 | `manual_agreement.csv` | kappa e matriz de confusão contra a amostra manual (criado por `vuln.sample import`) |
@@ -85,7 +87,7 @@ Observações:
 
 ## Reproduzir sem rede
 
-`mix vuln.report` só lê arquivos de `data/` (`commits.csv`, `repo_markers.csv`, `judgments.jsonl` e, se existirem, `sample_80_labeled.csv` e `volume.csv`). Não usa rede, clones nem chave. Com os dados versionados, `mix deps.get && mix vuln.report` refaz todas as tabelas de `out/`. Se `judgments.jsonl` não existe, o comando avisa e trata todo candidato como neutro. Os testes (`mix test`) também rodam sem rede, com a API do GitHub e da Anthropic simuladas.
+`mix vuln.report` só lê arquivos de `data/` (`commits.csv`, `repo_markers.csv`, `judgments.jsonl` e, se existirem, `sample_80_labeled.csv`, `volume.csv` e `volume_original.csv`). Não usa rede, clones nem chave. Com os dados versionados, `mix deps.get && mix vuln.report` refaz todas as tabelas de `out/`. Se `judgments.jsonl` não existe, o comando avisa e trata todo candidato como neutro. Os testes (`mix test`) também rodam sem rede, com a API do GitHub e da Anthropic simuladas.
 
 ## Modelo e prompt
 

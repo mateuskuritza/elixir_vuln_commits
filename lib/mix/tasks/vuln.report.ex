@@ -11,6 +11,7 @@ defmodule Mix.Tasks.Vuln.Report do
   @judgments "data/judgments.jsonl"
   @labeled "data/sample_80_labeled.csv"
   @volume "data/volume.csv"
+  @volume_original "data/volume_original.csv"
   @out "out"
 
   @impl Mix.Task
@@ -47,7 +48,7 @@ defmodule Mix.Tasks.Vuln.Report do
         manual: manual_agreement(labels),
         bots: Report.bots(extended),
         ai: Report.ai(extended, labels, markers),
-        volume: volume(extended, labels)
+        volume: volume(original, extended, labels)
       }
 
       write_all(summary)
@@ -102,11 +103,19 @@ defmodule Mix.Tasks.Vuln.Report do
     end
   end
 
-  defp volume(extended, labels) do
+  defp volume(original, extended, labels) do
     if File.exists?(@volume) do
       rows = Volume.load(@volume)
-      lines = Volume.by_hash(rows)
       years = Enum.to_list(2012..2025)
+
+      # com volume_original.csv a densidade cobre também 2012 a 2020 (só os commits do dataset)
+      {density_commits, lines, density_years} =
+        if File.exists?(@volume_original) do
+          lines = Volume.by_hash(rows ++ Volume.load(@volume_original))
+          {original ++ extended, lines, 2012..2025}
+        else
+          {extended, Volume.by_hash(rows), 2021..2025}
+        end
 
       %{
         per_year: Volume.per_year(rows, years),
@@ -114,7 +123,13 @@ defmodule Mix.Tasks.Vuln.Report do
         per_quarter: Volume.per_quarter(rows),
         frequent_authors: Volume.frequent_authors(rows, years),
         without_analytics: Volume.without_repo(rows, "analytics", years),
-        vulnerable_density: Report.vulnerable_density(extended, labels, lines),
+        vulnerable_density:
+          Report.vulnerable_density(density_commits, labels, lines, density_years),
+        vulnerable_density_periods:
+          Report.vulnerable_density_periods(density_commits, labels, lines, [
+            2012..2020,
+            2021..2025
+          ]),
         vulnerable_by_size: Report.vulnerable_by_size(extended, labels)
       }
     end
@@ -209,6 +224,10 @@ defmodule Mix.Tasks.Vuln.Report do
       {"volume_vulneraveis", ["ano", "vulneráveis", "linhas adicionadas", "por 10 mil linhas"],
        density_rows(volume.vulnerable_density),
        "Commits vulneráveis por 10 mil linhas Elixir adicionadas"},
+      {"volume_vulneraveis_periodos",
+       ["período", "vulneráveis", "linhas adicionadas", "por 10 mil linhas"],
+       density_rows(volume.vulnerable_density_periods),
+       "Commits vulneráveis por 10 mil linhas Elixir adicionadas, por período"},
       {"tamanho_vulneraveis", ["arquivos Elixir no commit", "commits", "vulneráveis", "(%)"],
        size_rows(volume.vulnerable_by_size),
        "Proporção de commits vulneráveis por tamanho do commit (2021 a 2025)"}
@@ -242,7 +261,7 @@ defmodule Mix.Tasks.Vuln.Report do
   end
 
   defp density_rows(rows) do
-    Enum.map(rows, fn row -> [row.year, row.vulnerable, row.added, row.per_10k_lines] end)
+    Enum.map(rows, fn row -> [row.name, row.vulnerable, row.added, row.per_10k_lines] end)
   end
 
   defp size_rows(rows) do

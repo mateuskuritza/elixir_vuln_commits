@@ -128,9 +128,36 @@ defmodule VulnCommits.ReportTest do
       rows = Report.vulnerable_density(extended, labels_from(extended), lines)
 
       assert Enum.find(rows, &(&1.year == 2024)) ==
-               %{year: 2024, vulnerable: 1, added: 2000, per_10k_lines: 5.0}
+               %{name: "2024", year: 2024, vulnerable: 1, added: 2000, per_10k_lines: 5.0}
 
       assert Enum.find(rows, &(&1.year == 2021)).per_10k_lines == 0.0
+    end
+
+    test "vulnerable_density_periods junta os anos de cada período" do
+      commits = [
+        commit("o1", year: 2015, period: :original, human: :vulnerable),
+        commit("o2", year: 2019, period: :original),
+        commit("e1", year: 2024, period: :extended, human: :vulnerable),
+        commit("e2", year: 2025, period: :extended, human: :vulnerable)
+      ]
+
+      lines = %{
+        "o1" => %{added: 1000, deleted: 0},
+        "o2" => %{added: 1000, deleted: 0},
+        "e1" => %{added: 5000, deleted: 0},
+        "e2" => %{added: 5000, deleted: 0}
+      }
+
+      rows =
+        Report.vulnerable_density_periods(commits, labels_from(commits), lines, [
+          2012..2020,
+          2021..2025
+        ])
+
+      assert rows == [
+               %{name: "2012 a 2020", vulnerable: 1, added: 2000, per_10k_lines: 5.0},
+               %{name: "2021 a 2025", vulnerable: 2, added: 10000, per_10k_lines: 2.0}
+             ]
     end
 
     test "vulnerable_by_size separa os commits por número de arquivos" do

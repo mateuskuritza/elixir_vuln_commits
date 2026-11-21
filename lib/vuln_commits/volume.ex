@@ -25,6 +25,27 @@ defmodule VulnCommits.Volume do
     Enum.reject(measured, fn measured_row -> measured_row.files == 0 end)
   end
 
+  # mede os commits do dataset original pelo hash: parte deles não está na branch padrão
+  # (o histórico do repositório elixir foi reescrito depois de 2020)
+  def collect_commits(commits, repo_rows) do
+    dirs = Map.new(repo_rows, fn row -> {row.name, row.dir} end)
+    known = Enum.filter(commits, fn commit -> Map.has_key?(dirs, commit.repo) end)
+
+    results =
+      Task.async_stream(known, fn commit -> measure_commit(commit, dirs) end,
+        max_concurrency: 4,
+        timeout: :infinity
+      )
+
+    Enum.map(results, fn {:ok, measured_row} -> measured_row end)
+  end
+
+  defp measure_commit(commit, dirs) do
+    numstat = Git.numstat(Map.fetch!(dirs, commit.repo), commit.hash)
+    entry = %{hash: commit.hash, date: commit.date, author_email: commit.author_email}
+    Map.merge(lines_of(numstat), identity(entry, commit.repo, commit.bot))
+  end
+
   defp measure(entry, row) do
     numstat = Git.numstat(row.dir, entry.hash)
     commit = %Commit{author_name: entry.author_name, author_email: entry.author_email}
