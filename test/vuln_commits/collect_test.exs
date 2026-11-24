@@ -168,4 +168,21 @@ defmodule VulnCommits.CollectTest do
       assert Collect.load(path) == commits
     end
   end
+
+  describe "drop_known/2" do
+    test "tira o commit do dataset pelo hash e pela cópia reescrita" do
+      known = %Commit{
+        repo: "elixir",
+        hash: "a1",
+        author_email: "x@y",
+        date: ~D[2015-03-01],
+        message: "Fix race\n\ncorpo"
+      }
+
+      rewritten = %{known | hash: "b2", message: "Fix race\n\noutro corpo"}
+      other = %{known | hash: "c3", message: "Add docs"}
+
+      assert Collect.drop_known([known, rewritten, other], [known]) == [other]
+    end
+  end
 end

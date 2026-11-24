@@ -35,12 +35,13 @@ mix vuln.dataset  ->  vuln.repos  ->  vuln.collect  ->  vuln.volume  ->  vuln.sa
 | `mix vuln.repos` | o CSV do figshare, o GitHub e `priv/repo_map.exs` | clones em `repos/<nome>` e `data/repos.csv` (qual repositório segue ativo) |
 | `mix vuln.collect` | `data/repos.csv`, o CSV do figshare e os clones | `data/commits.csv` (período original e estendido) e `data/repo_markers.csv` |
 | `mix vuln.volume` | `data/repos.csv`, `data/commits.csv` e os clones | `data/volume.csv` (arquivos e linhas Elixir de cada commit da branch padrão, de 2012 a 2025) e `data/volume_original.csv` (o mesmo para os commits do dataset de 2012 a 2020). `mix vuln.volume original` refaz só o segundo |
+| `mix vuln.complement` | `data/repos.csv`, `data/commits.csv` e os clones | `data/commits_complement.csv`: commits de 2012 a 2020 da branch padrão que não estão no dataset original (sem merges, com arquivo Elixir; as cópias reescritas do `elixir` saem por autor, data e primeira linha) |
 | `mix vuln.sample export` | `data/commits.csv`, `data/repos.csv` e os clones | `data/sample_80.csv`, a planilha de 80 commits para rotular à mão |
 | `mix vuln.judge --period original --years 2012-2016` | `data/commits.csv`, os clones e a API da Anthropic | acrescenta linhas em `data/judgments.jsonl` (conjunto de desenvolvimento) |
 | `mix vuln.judge --period original --years 2017-2020` | idem | idem (conjunto de avaliação) |
 | `mix vuln.judge --period extended` | idem | idem (2021 a 2025) |
 | `mix vuln.sample import` | `data/sample_80_labeled.csv`, `data/commits.csv` e `data/judgments.jsonl` | `out/manual_agreement.csv` |
-| `mix vuln.report` | só `data/` | tabelas e `summary.json` em `out/` |
+| `mix vuln.report` | só `data/` | tabelas e `summary.json` em `out/`; com `data/commits_complement.csv`, também as tabelas do histórico completo (`periodos`, `comparacoes`, `per_year_full`, `mensagem`, `mensagem_padronizada`) |
 
 Observações:
 
@@ -102,6 +103,7 @@ Observações:
 mix vuln.agents export --period original --years 2012-2016 --run 1 --out lotes/run1
 # cada lotes/run1/batch-NNN.md é lido por um agente, que grava batch-NNN.out.jsonl
 mix vuln.agents import --run 1 --out lotes/run1
+# para os commits de fora do dataset: --commits data/commits_complement.csv --period complement
 ```
 
 `export` grava lotes de 20 commits, cada um com as instruções do prompt, a mensagem, os arquivos e o diff truncado. Cada lote é entregue a um agente novo, sem memória dos outros lotes nem das outras execuções, que devolve uma linha JSON por commit. `import` confere os hashes e acrescenta os julgamentos em `data/judgments.jsonl`. Por esse caminho não há controle de `temperature` nem de `seed`; a variação entre as 3 execuções é medida pelo kappa entre execuções em `out/agreement.*`.

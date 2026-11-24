@@ -59,10 +59,11 @@ defmodule VulnCommits.Collect do
     until = Keyword.fetch!(opts, :until)
     ref = branch_ref(row.dir, row.default_branch)
 
+    period = Keyword.get(opts, :period, :extended)
     log_entries = Git.log(row.dir, ref, no_merges: true, since: since, until: until)
 
     results =
-      Task.async_stream(log_entries, fn entry -> fetch_files(entry, row) end,
+      Task.async_stream(log_entries, fn entry -> fetch_files(entry, row, period) end,
         max_concurrency: 4,
         timeout: :infinity
       )
@@ -72,7 +73,7 @@ defmodule VulnCommits.Collect do
     Enum.map(elixir_commits, fn commit -> enrich(commit) end)
   end
 
-  defp fetch_files(log_entry, row) do
+  defp fetch_files(log_entry, row, period) do
     files = Git.files(row.dir, log_entry.hash)
 
     %Commit{
@@ -85,9 +86,30 @@ defmodule VulnCommits.Collect do
       files: files,
       elixir_files: Enum.filter(files, fn file -> Commit.elixir_file?(file) end),
       merge?: log_entry.merge?,
-      period: :extended,
+      period: period,
       human_label: nil
     }
+  end
+
+  # commits de 2012-2020 da branch padrão que não estão no dataset original.
+  # o elixir teve o histórico reescrito, então além do hash compara autor, data e 1a linha
+  def complement(repo_rows, original, opts) do
+    all = extended(repo_rows, Keyword.put(opts, :period, :complement))
+    drop_known(all, original)
+  end
+
+  def drop_known(commits, original) do
+    hashes = MapSet.new(original, fn commit -> commit.hash end)
+    keys = MapSet.new(original, fn commit -> same_commit_key(commit) end)
+
+    Enum.reject(commits, fn commit ->
+      MapSet.member?(hashes, commit.hash) or MapSet.member?(keys, same_commit_key(commit))
+    end)
+  end
+
+  defp same_commit_key(commit) do
+    first_line = commit.message |> String.split("\n") |> hd() |> String.trim()
+    {commit.repo, commit.author_email, commit.date, first_line}
   end
 
   def merges_excluded(row, opts) do

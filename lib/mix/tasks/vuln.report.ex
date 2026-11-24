@@ -1,7 +1,7 @@
 defmodule Mix.Tasks.Vuln.Report do
   use Mix.Task
 
-  alias VulnCommits.{Collect, CSV, Judge, Latex, Metrics, Report, Sample, Volume}
+  alias VulnCommits.{Collect, CSV, Judge, Latex, Metrics, Population, Report, Sample, Volume}
   alias VulnCommits.Judge.{Batch, Prompt, Store}
 
   @shortdoc "Gera as tabelas do relatório em out/ (use --dev para só a concordância de 2012-2016)"
@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Vuln.Report do
   @labeled "data/sample_80_labeled.csv"
   @volume "data/volume.csv"
   @volume_original "data/volume_original.csv"
+  @complement "data/commits_complement.csv"
   @out "out"
 
   @impl Mix.Task
@@ -52,8 +53,166 @@ defmodule Mix.Tasks.Vuln.Report do
       }
 
       write_all(summary)
+      write_population(original, extended, records)
     end
   end
+
+  # histórico completo de 2012 a 2020: dataset + commits de fora (mix vuln.complement)
+  defp write_population(original, extended, records) do
+    if File.exists?(@complement) do
+      complement = Collect.load(@complement)
+      all = original ++ extended ++ complement
+      labels = Judge.labels(all, records, Batch.model(), Prompt.version())
+      full = original ++ complement
+      recent = Enum.reject(extended, fn commit -> commit.bot end)
+      early = Enum.filter(recent, fn commit -> commit.year <= 2023 end)
+      late = Enum.filter(recent, fn commit -> commit.year >= 2024 end)
+
+      without = fn commits, repos ->
+        Enum.reject(commits, fn commit -> commit.repo in repos end)
+      end
+
+      periods = [
+        Population.row("2012-2020, dataset original", original, labels),
+        Population.row("2012-2020, fora do dataset", complement, labels),
+        Population.row("2012-2020, histórico completo", full, labels),
+        Population.row("2021-2023", early, labels),
+        Population.row("2024-2025", late, labels),
+        Population.row("2021-2025", recent, labels)
+      ]
+
+      comparisons =
+        Enum.flat_map([[], ["elixir"], ["analytics"], ["analytics", "realtime"]], fn repos ->
+          suffix = if repos == [], do: "", else: " sem " <> Enum.join(repos, "+")
+          base = without.(full, repos)
+
+          [
+            Population.compare(
+              "2012-2020 x 2021-2025" <> suffix,
+              base,
+              without.(recent, repos),
+              labels
+            ),
+            Population.compare(
+              "2012-2020 x 2021-2023" <> suffix,
+              base,
+              without.(early, repos),
+              labels
+            ),
+            Population.compare(
+              "2012-2020 x 2024-2025" <> suffix,
+              base,
+              without.(late, repos),
+              labels
+            )
+          ]
+        end) ++ [Population.compare("2021-2023 x 2024-2025", early, late, labels)]
+
+      lines = Volume.by_hash(Volume.load(@volume))
+
+      per_year =
+        Enum.map(2012..2025, fn year ->
+          group = Enum.filter(full ++ recent, fn commit -> commit.year == year end)
+          vulnerable = Population.count(group, labels)
+
+          on_branch =
+            Enum.filter(Map.values(lines), fn row -> row.year == year and not row.bot end)
+
+          added = Enum.sum(Enum.map(on_branch, fn row -> row.added end))
+
+          [
+            year,
+            length(group),
+            vulnerable,
+            Metrics.proportion(vulnerable, length(group)),
+            added,
+            Float.round(1.0e4 * vulnerable / max(added, 1), 2)
+          ]
+        end)
+
+      length_rows =
+        Enum.zip(Population.by_length(full, labels), Population.by_length(recent, labels))
+        |> Enum.map(fn {a, b} ->
+          [
+            bin_name(a.bin),
+            a.commits,
+            a.candidates,
+            a.vulnerable,
+            b.commits,
+            b.candidates,
+            b.vulnerable
+          ]
+        end)
+
+      standardized = [
+        [
+          "2021-2025",
+          Population.row("", recent, labels).pct,
+          Population.standardized(recent, full, labels)
+        ],
+        [
+          "2021-2023",
+          Population.row("", early, labels).pct,
+          Population.standardized(early, full, labels)
+        ],
+        [
+          "2024-2025",
+          Population.row("", late, labels).pct,
+          Population.standardized(late, full, labels)
+        ]
+      ]
+
+      [
+        {"periodos", ["recorte", "commits", "vulneráveis", "%"],
+         Enum.map(periods, fn row -> [row.name, row.commits, row.vulnerable, row.pct] end),
+         "Proporção de vulneráveis por recorte (classificador)"},
+        {"comparacoes",
+         [
+           "comparação",
+           "vuln. A",
+           "commits A",
+           "% A",
+           "vuln. B",
+           "commits B",
+           "% B",
+           "p (Fisher)"
+         ],
+         Enum.map(comparisons, fn c ->
+           [
+             c.name,
+             c.left.vulnerable,
+             c.left.commits,
+             c.left.pct,
+             c.right.vulnerable,
+             c.right.commits,
+             c.right.pct,
+             Float.round(c.p, 4)
+           ]
+         end), "Comparação entre períodos com a mesma população"},
+        {"per_year_full",
+         ["ano", "commits", "vulneráveis", "%", "linhas adicionadas", "por 10 mil linhas"],
+         per_year, "Histórico completo por ano"},
+        {"mensagem",
+         [
+           "palavras",
+           "commits 2012-2020",
+           "cand. (%)",
+           "vuln. (%)",
+           "commits 2021-2025",
+           "cand. (%)",
+           "vuln. (%)"
+         ], length_rows, "Taxas por tamanho da mensagem"},
+        {"mensagem_padronizada", ["período", "bruto (%)", "padronizado (%)"], standardized,
+         "Proporção reponderada pela distribuição de tamanho de mensagem de 2012-2020"}
+      ]
+      |> Enum.each(fn table -> write_table(table) end)
+
+      Mix.shell().info("tabelas do histórico completo gravadas em #{@out}/")
+    end
+  end
+
+  defp bin_name({low, :inf}), do: "#{low}+"
+  defp bin_name({low, high}), do: "#{low}-#{high}"
 
   defp warn_if_empty(labels) do
     no_votes =

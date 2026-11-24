@@ -13,7 +13,7 @@ defmodule Mix.Tasks.Vuln.Agents do
   @impl Mix.Task
   def run(["export" | args]) do
     opts = parse(args)
-    commits = Collect.load(@commits)
+    commits = Collect.load(opts.commits)
     repo_rows = Repos.load(@repos)
     dirs = Map.new(repo_rows, fn repo -> {repo.name, repo.dir} end)
     version = Prompt.version()
@@ -55,7 +55,7 @@ defmodule Mix.Tasks.Vuln.Agents do
 
   def run(["import" | args]) do
     opts = parse(args)
-    all_commits = Collect.load(@commits)
+    all_commits = Collect.load(opts.commits)
     commits = Map.new(all_commits, fn commit -> {commit.hash, commit} end)
     index_path = Path.join(opts.out, "index.json")
     index = Jason.decode!(File.read!(index_path))
@@ -101,7 +101,8 @@ defmodule Mix.Tasks.Vuln.Agents do
           years: :string,
           run: :integer,
           out: :string,
-          batch_size: :integer
+          batch_size: :integer,
+          commits: :string
         ]
       )
 
@@ -110,12 +111,15 @@ defmodule Mix.Tasks.Vuln.Agents do
       years: years(parsed[:years]),
       run: Keyword.fetch!(parsed, :run),
       out: Keyword.fetch!(parsed, :out),
-      batch_size: Keyword.get(parsed, :batch_size, 20)
+      batch_size: Keyword.get(parsed, :batch_size, 20),
+      commits: Keyword.get(parsed, :commits, @commits)
     }
   end
 
   defp period(nil), do: nil
-  defp period(text), do: String.to_existing_atom(text)
+  defp period("original"), do: :original
+  defp period("extended"), do: :extended
+  defp period("complement"), do: :complement
 
   defp years(nil), do: nil
 
